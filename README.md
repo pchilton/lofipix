@@ -17,8 +17,8 @@ graph TD
 
     %% Core Services
     subgraph CoreBackend [Core Backend Engine]
-        API[Central API Hub<br>Stateless Node.js / Bun]
-        DB[(PostgreSQL Database<br>Prisma ORM)]
+        API[Central API Hub<br>Fastify / NodeJS]
+        DB[(PostgreSQL Database<br>Drizzle ORM)]
     end
 
     Storage[(MinIO Object Storage<br>Local NVMe S3)]
@@ -37,21 +37,24 @@ graph TD
 
 ## Directory structure
 
-```mermaid
-graph TD
-    ROOT["spaa (root)"] --> apps["apps/"]
-    ROOT --> services["services/"]
-    ROOT --> packages["packages/"]
-    ROOT --> WS[["pnpm-workspace.yaml<br>Monorepo config"]]
-    ROOT --> DC[["docker-compose.yml<br>Multi-container stack"]]
+| Path | Description | Technology |
+| --- | --- | --- |
+| `web/` | Web app | SolidJS + Vite, static export |
+| `mobile/android/` | Android app | React Native |
+| `mobile/ios/` | iOS app | React Native |
+| `mobile/pwa/` | PWA | SolidJS + Vite + VitePWA |
+| `api/` | Central API | Fastify + NodeJS + Drizzle ORM |
+| `models/` | Shared Zod models & TypeScript types | TypeScript |
+| `database/` | Database schema + SQL migrations | TypeScript + Drizzle ORM |
+| `scripts/` | Shell commands, development tasks | Bash + TypeScript |
+| `config/` | Application configuration | .conf, .toml, .env, TypeScript |
 
-    apps --> web["web/<br>SolidJS + Vite Static Export"]
-    apps --> mobile["mobile/"]
-    mobile --> android["android/<br>React Native"]
-    mobile --> ios["ios/<br>React Native"]
-    mobile --> pwa["pwa/<br>SolidJS + Vite + VitePWA"]
+## General technologies
 
-    services --> api["api-hub/<br>JSON Stateless Controller"]
-
-    packages --> core["core-models/<br>Zod Models & TS Types"]
-    packages --> db[("database/<br>Schema + SQL Migrations")]
+- **Frontend**: SolidJS, React Native, Tailwind CSS
+- **Backend**: Node.js, Fastify, Drizzle ORM
+- **Shared**: TypeScript, Zod, Shared Models
+- **Database**: PostgreSQL
+- **Storage**: MinIO (S3-compatible)
+- **Infrastructure**: Docker, Docker Compose, Nginx
+- **Deployment**: VPS, GitHub Actions
