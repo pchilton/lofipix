@@ -27,4 +27,3 @@
 - [ ] <checkable criterion — ideally a command that passes>
 - [ ] <checkable criterion>
 - [ ] README/AGENTS.md updated if structure or conventions changed
-- [ ] Committed with a conventional commit message
