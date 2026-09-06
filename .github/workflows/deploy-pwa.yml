@@ -1,0 +1,40 @@
+name: Deploy pwa
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "pwa/**"
+      - ".github/workflows/deploy-pwa.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: pwa/package-lock.json
+
+      - name: Install dependencies
+        working-directory: pwa
+        run: npm ci
+
+      - name: Build
+        working-directory: pwa
+        run: npm run build
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: pwa
+          command: deploy --name lofipix-pwa --assets dist
