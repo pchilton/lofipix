@@ -1,0 +1,20 @@
+:root {
+  font-family: system-ui, -apple-system, sans-serif;
+  color: #f8fafc;
+  background-color: #0f172a;
+}
+
+body {
+  margin: 0;
+}
+
+main {
+  display: grid;
+  place-content: center;
+  min-height: 100vh;
+  text-align: center;
+}
+
+h1 {
+  margin: 0;
+}
