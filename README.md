@@ -39,15 +39,15 @@ graph TD
 
 | Path | Description | Technology |
 | --- | --- | --- |
-| `web/` | Web app | SolidJS + Vite, static export |
+| `api/` | Central API | Fastify + NodeJS + Drizzle ORM |
+| `config/` | Application configuration | .conf, .toml, .env, TypeScript |
+| `database/` | Database schema + SQL migrations | TypeScript + Drizzle ORM |
 | `mobile/android/` | Android app | React Native |
 | `mobile/ios/` | iOS app | React Native |
-| `mobile/pwa/` | PWA | SolidJS + Vite + VitePWA |
-| `api/` | Central API | Fastify + NodeJS + Drizzle ORM |
 | `models/` | Shared Zod models & TypeScript types | TypeScript |
-| `database/` | Database schema + SQL migrations | TypeScript + Drizzle ORM |
+| `pwa/` | Progressive Web Application | SolidJS + Vite + VitePWA |
 | `scripts/` | Shell commands, development tasks | Bash + TypeScript |
-| `config/` | Application configuration | .conf, .toml, .env, TypeScript |
+| `web/` | Web app | SolidJS + Vite, static export |
 
 ## General technologies
 
