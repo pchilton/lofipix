@@ -47,7 +47,7 @@ graph TD
 | `models/` | Shared Zod models & TypeScript types | TypeScript |
 | `pwa/` | Progressive Web Application | SolidJS + Vite + VitePWA |
 | `scripts/` | Shell commands, development tasks | Bash + TypeScript |
-| `web/` | Web app | SolidJS + Vite, static export |
+| `www/` | Web app | SolidJS + Vite, static export |
 
 ## General technologies
 

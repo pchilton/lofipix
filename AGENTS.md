@@ -7,7 +7,7 @@ Individual development tasks live in `prompts/` — an agent asked to "implement
 
 lofipix is a multi-client app platform:
 
-- **Web app** — SolidJS + Vite, static export (`web/`)
+- **Web app** — SolidJS + Vite, static export (`www/`)
 - **Mobile apps** — React Native (`mobile/android/`, `mobile/ios/`)
 - **PWA** — SolidJS + Vite + VitePWA (`pwa/`)
 - **Central API** — Fastify + Node.js + Drizzle ORM (`api/`)

@@ -32,16 +32,16 @@ See `_template.md` for the format. A minimal real prompt:
 **Status:** open
 
 ## Context
-- `web/` is planned but doesn't exist (see README directory table).
+- `www/` is planned but doesn't exist (see README directory table).
 
 ## Scope
-- Create `web/` as a SolidJS + Vite app configured for static export.
+- Create `www/` as a SolidJS + Vite app configured for static export.
 - Out of scope: routing, styling beyond a placeholder page, deployment.
 
 ## Constraints
 - Match AGENTS.md conventions; TypeScript only.
 
 ## Definition of Done
-- [ ] `web/` builds with `npm run build` producing static output
+- [ ] `www/` builds with `npm run build` producing static output
 - [ ] README directory table still accurate
 ```
