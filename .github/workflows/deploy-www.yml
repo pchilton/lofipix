@@ -36,5 +36,6 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          packageVersion: "wrangler@4"
           workingDirectory: www
-          command: deploy --name lofipix-www --assets dist
+          command: deploy --name lofipix-www --assets dist --compatibility-date 2025-11-01
