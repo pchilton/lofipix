@@ -1,0 +1,22 @@
+name: Deploy lofipix-edge
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "workers/lofipix-edge.js"
+      - ".github/workflows/deploy-workers-edge.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: "workers"
+          command: deploy lofipix-edge.js --name lofipix-edge --compatibility-date 2024-09-23
