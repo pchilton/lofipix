@@ -77,7 +77,7 @@ graph TD
 | `mobile/ios/` | iOS app | React Native |
 | `models/` | Shared Zod models & TypeScript types | TypeScript |
 | `pwa/` | Progressive Web Application | SolidJS + Vite + VitePWA |
-| `scripts/` | Shell commands, development tasks | Bash + TypeScript |
+| `workers/` | CloudFlare Workers | JavaScript |
 | `www/` | Web app | SolidJS + Vite, static export |
 
 ## General technologies
