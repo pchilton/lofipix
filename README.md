@@ -95,3 +95,21 @@ graph TD
 - **Database**: PostgreSQL
 - **Storage**: MinIO (S3-compatible)
 - **Deployment**: VPS, GitHub Actions
+
+## Local development (Docker)
+
+`docker-compose.dev.yml` brings up the full development stack with file watching and HMR:
+
+| Service | URL | Source |
+| --- | --- | --- |
+| API (Hono + Bun) | http://localhost:3000 | `api/Dockerfile.dev` |
+| WWW (SolidJS + Vite) | http://localhost:5173 | `www/Dockerfile.dev` |
+| PWA (SolidJS + VitePWA) | http://localhost:5174 | `pwa/Dockerfile.dev` |
+| PostgreSQL | localhost:5432 | `postgres:16-alpine` |
+| Temporal | localhost:7233 | `temporalio/auto-setup` |
+
+```sh
+docker compose -f docker-compose.dev.yml up --build
+```
+
+Each app folder also has a standalone `Dockerfile.dev`, so an individual service can be built and run on its own. The API connects to PostgreSQL via `DATABASE_URL`; its `/db/status` endpoint reports database connectivity.

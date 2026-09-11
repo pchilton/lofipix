@@ -40,6 +40,19 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html,png,svg,webmanifest}"],
         navigateFallback: "index.html",
       },
+      devOptions: {
+        enabled: true // Ensures service workers test cleanly inside the Docker container
+      }
     }),
   ],
+  server: {
+    host: '0.0.0.0',
+    port: 5174,
+    watch: {
+      usePolling: true,
+    },
+    hmr: {
+      clientPort: 5174, // Ensures your browser hits the local container web port safely
+    },
+  },
 });

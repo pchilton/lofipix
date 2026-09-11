@@ -1,0 +1,86 @@
+services:
+  # 1. Database Backend
+  postgres:
+    image: postgres:16-alpine
+    container_name: lofipix-postgres-dev
+    environment:
+      POSTGRES_DB: lofipix
+      POSTGRES_USER: lofipix
+      POSTGRES_PASSWORD: b2d519c88f83aaad875d5f48636b289e
+    volumes:
+      - lofipix_postgres_dev_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lofipix -d lofipix"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # 2. Temporal Orchestrator Core Engine
+  temporal-server:
+    image: temporalio/auto-setup:1.24.2
+    container_name: lofipix-temporal-server-dev
+    ports:
+      - "7233:7233"
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_SEEDS=postgres
+      - POSTGRES_USER=lofipix
+      - POSTGRES_PWD=b2d519c88f83aaad875d5f48636b289e
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # 3. Hono API Server (Bun)
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile.dev
+    container_name: lofipix-api-dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./api:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - TEMPORAL_ADDRESS=temporal-server:7233
+      - DATABASE_URL=postgres://lofipix:b2d519c88f83aaad875d5f48636b289e@postgres:5432/lofipix
+    depends_on:
+      postgres:
+        condition: service_healthy
+      temporal-server:
+        condition: service_started
+
+  # 4. Main Web App Interface (SolidJS)
+  www:
+    build:
+      context: ./www
+      dockerfile: Dockerfile.dev
+    container_name: lofipix-www-dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./www:/app
+      - /app/node_modules
+    depends_on:
+      - api
+
+  # 5. Progressive Web Application (SolidJS PWA)
+  pwa:
+    build:
+      context: ./pwa
+      dockerfile: Dockerfile.dev
+    container_name: lofipix-pwa-dev
+    ports:
+      - "5174:5174"
+    volumes:
+      - ./pwa:/app
+      - /app/node_modules
+    depends_on:
+      - api
+
+volumes:
+  lofipix_postgres_dev_data:
