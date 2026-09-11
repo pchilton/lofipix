@@ -21,7 +21,7 @@ app.get("/db/status", async (c) => {
 });
 
 export default {
-  port: Number(process.env.PORT ?? 3000),
+  port: Number(process.env.PORT ?? 5634),
   hostname: "0.0.0.0",
   fetch: app.fetch,
 };
