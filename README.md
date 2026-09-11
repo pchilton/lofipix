@@ -5,6 +5,11 @@
 ```mermaid
 graph TD
     %% Static Hosting
+    subgraph CFWorkers [CloudFlare Workers]
+        CFRedirect[lofipix.app<br>from workers/lofipix-redirect.js]
+        CFEdge[edge.lofipix.app<br>from workers/lofipix-edge.js]
+    end
+
     subgraph CloudFlare [CloudFlare Pages]
         CFWeb[www.lofipix.app<br>from www/ folder]
         CFPWA[pwa.lofipix.app<br>from pwa/ folder]
@@ -56,6 +61,7 @@ graph TD
     StorageProxy -->|Local Reverse Proxy| Storage
 
     %% Layout Classes for Styling
+    style CFWorkers fill:#1e3a5f,stroke:#64748b,stroke-width:2px,color:#fff
     style CloudFlare fill:#1e3a5f,stroke:#64748b,stroke-width:2px,color:#fff
     style AppStores fill:#312e81,stroke:#64748b,stroke-width:2px,color:#fff
     style ClientInterfaces fill:#0f3d3e,stroke:#2dd4bf,stroke-width:2px,color:#fff
@@ -84,9 +90,8 @@ graph TD
 
 - **Frontend**: SolidJS, React Native, Tailwind CSS
 - **Backend**: Bun, Hono, Drizzle ORM
-- **Package manager**: Bun (`bun install`, `bun run`, `bun.lock`)
+- **Package manager**: Bun (`bun install`, `bun.lock`)
 - **Shared**: TypeScript, Zod, Shared Models
 - **Database**: PostgreSQL
 - **Storage**: MinIO (S3-compatible)
-- **Infrastructure**: Docker, Docker Compose, Nginx
 - **Deployment**: VPS, GitHub Actions
