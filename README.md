@@ -32,7 +32,7 @@ graph TD
 
     %% Core Services
     subgraph CoreBackend [Core Backend Engine]
-        API[Central API Hub<br>Fastify / NodeJS]
+        API[Central API Hub<br>Hono / Bun]
         DB[(PostgreSQL Database<br>Drizzle ORM)]
     end
 
@@ -70,20 +70,21 @@ graph TD
 
 | Path | Description | Technology |
 | --- | --- | --- |
-| `api/` | Central API | Fastify + NodeJS + Drizzle ORM |
+| `api/` | Central API | Hono + Bun + Drizzle ORM |
 | `config/` | Application configuration | .conf, .toml, .env, TypeScript |
 | `database/` | Database schema + SQL migrations | TypeScript + Drizzle ORM |
 | `mobile/android/` | Android app | React Native |
 | `mobile/ios/` | iOS app | React Native |
 | `models/` | Shared Zod models & TypeScript types | TypeScript |
-| `pwa/` | Progressive Web Application | SolidJS + Vite + VitePWA |
+| `pwa/` | Progressive Web Application | SolidJS + Vite + VitePWA, Bun |
 | `workers/` | CloudFlare Workers | JavaScript |
-| `www/` | Web app | SolidJS + Vite, static export |
+| `www/` | Web app | SolidJS + Vite, static export, Bun |
 
 ## General technologies
 
 - **Frontend**: SolidJS, React Native, Tailwind CSS
-- **Backend**: Node.js, Fastify, Drizzle ORM
+- **Backend**: Bun, Hono, Drizzle ORM
+- **Package manager**: Bun (`bun install`, `bun run`, `bun.lock`)
 - **Shared**: TypeScript, Zod, Shared Models
 - **Database**: PostgreSQL
 - **Storage**: MinIO (S3-compatible)
