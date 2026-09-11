@@ -48,6 +48,10 @@ services:
       - NODE_ENV=development
       - TEMPORAL_ADDRESS=temporal-server:7233
       - DATABASE_URL=postgres://lofipix:b2d519c88f83aaad875d5f48636b289e@postgres:5432/lofipix
+      - MINIO_BUCKET=development-lofipix
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=DNBJFZMY1TVNZDXT8BTG
+      - MINIO_SECRET_KEY=Iv4GWc0OmcGAen37t/iJUwBmK51DxX4m0Y3DxhyY
     depends_on:
       postgres:
         condition: service_healthy
