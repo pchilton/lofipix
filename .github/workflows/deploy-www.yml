@@ -23,9 +23,11 @@ jobs:
           bun-version: latest # Automatically installs the latest stable Bun
 
       - name: Install Dependencies
+        working-directory: www
         run: bun install --frozen-lockfile
 
       - name: Build Production Assets
+        working-directory: www
         run: bunx --bun vite build
 
       - name: Deploy to Cloudflare Workers
