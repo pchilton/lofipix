@@ -9,14 +9,15 @@
     "./schema": "./schema.ts"
   },
   "scripts": {
-    "db:push": "bunx drizzle-kit push"
+    "db:push": "bunx drizzle-kit push",
+    "db:studio": "bun drizzle-kit studio"
   },
   "dependencies": {
     "drizzle-orm": "latest",
     "postgres": "latest"
   },
   "devDependencies": {
-    "@types/node": "^22.20.2",
+    "@types/bun": "^1.4.2",
     "drizzle-kit": "latest"
   }
 }

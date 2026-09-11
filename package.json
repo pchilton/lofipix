@@ -9,6 +9,7 @@
     "packages/*"
   ],
   "scripts": {
-    "db:push": "bun --filter @lofipix/db db:push"
+    "db:push": "bun --filter @lofipix/db db:push",
+    "db:studio": "bun --filter @lofipix/db db:studio"
   }
 }
