@@ -99,6 +99,7 @@ services:
     environment:
       - MINIO_ROOT_USER=lofipix
       - MINIO_ROOT_PASSWORD=8f2503c6ebae55a2c1df9560acd10cbb
+      - MINIO_API_CORS_ALLOW_ORIGIN=http://localhost,http://localhost:*,https://*.lofipix.app
 
 volumes:
   lofipix_postgres_dev_data:
