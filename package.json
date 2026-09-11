@@ -1,0 +1,14 @@
+{
+  "name": "lofipix-monorepo",
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "api",
+    "www",
+    "pwa",
+    "packages/*"
+  ],
+  "scripts": {
+    "db:push": "bun --filter @lofipix/db db:push"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "@lofipix/db",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./schema": "./schema.ts"
+  },
+  "scripts": {
+    "db:push": "bunx drizzle-kit push"
+  },
+  "dependencies": {
+    "drizzle-orm": "latest",
+    "postgres": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.2",
+    "drizzle-kit": "latest"
+  }
+}

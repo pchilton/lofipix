@@ -10,7 +10,8 @@
     "typecheck": "bunx tsc --noEmit"
   },
   "dependencies": {
-    "solid-js": "^1.9.15"
+    "solid-js": "^1.9.15",
+    "@lofipix/db": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^7.0.2",
