@@ -19,7 +19,7 @@ Rename the file from `NNNN-<slug>.md` to `NNNN-<slug>.done.md`
 - **One task per file.** If a task has two independent deliverables, split it into two prompts.
 - **Keep prompts lean.** Stable context (stack, conventions, architecture) belongs in `AGENTS.md` and `README.md` — reference those, don't restate them.
 - **Be explicit about scope.** "Out of scope" bullets prevent agents from gold-plating.
-- **Definition of Done must be checkable.** Prefer commands (`pnpm typecheck`, `pnpm test`, `docker compose build`) over vibes ("works correctly").
+- **Definition of Done must be checkable.** Prefer commands (`bunx typecheck`, `bunx test`) over vibes ("works correctly").
 - **Dependencies**: if a task depends on an earlier prompt, say so in Context.
 
 ## Example
@@ -42,6 +42,6 @@ See `_template.md` for the format. A minimal real prompt:
 - Match AGENTS.md conventions; TypeScript only.
 
 ## Definition of Done
-- [ ] `www/` builds with `npm run build` producing static output
+- [ ] `www/` builds with `bun run build` producing static output
 - [ ] README directory table still accurate
 ```

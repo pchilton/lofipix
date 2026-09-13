@@ -12,7 +12,7 @@ lofipix is a multi-client app platform:
 - **PWA** — SolidJS + Vite + VitePWA, Bun (`pwa/`)
 - **Central API** — Hono + Bun + Drizzle ORM (`api/`)
 - **Database** — PostgreSQL, schema + SQL migrations (`database/`)
-- **Storage** — MinIO (S3-compatible) on local NVMe
+- **Storage** — SeaweedFS (S3-compatible) on local NVMe
 - **Shared models** — Zod schemas + TypeScript types (`models/`)
 - **Config / scripts** — `config/`, `scripts/`
 - **Edge Functions** — `workers/` (Cloudflare Workers)

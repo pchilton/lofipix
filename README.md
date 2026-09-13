@@ -43,7 +43,7 @@ graph TD
 
     StorageProxy[VPS Nginx Reverse Proxy<br>storage.lofipix.app<br>SSL Termination / Port Mapping]
 
-    Storage[(MinIO Object Storage<br>Local NVMe S3)]
+    Storage[(SeaweedFS Object Storage<br>Local NVMe S3)]
 
     %% Hosting Routes
     CFWeb -->|Serves Static Site| Web
@@ -93,15 +93,5 @@ graph TD
 - **Package manager**: Bun (`bun install`, `bun.lock`)
 - **Shared**: TypeScript, Zod, Shared Models
 - **Database**: PostgreSQL
-- **Storage**: MinIO (S3-compatible)
+- **Storage**: SeaweedFS (S3-compatible)
 - **Deployment**: VPS, GitHub Actions
-
-## Local services (Docker)
-
-`docker-compose.dev.yml` brings up shared services for PostgreSQL, Temporal, and MinIO:
-
-| Service | URL | Source |
-| --- | --- | --- |
-| PostgreSQL | localhost:5432 | `postgres:16-alpine` |
-| Temporal | localhost:7233 | `temporalio/auto-setup` |
-| MinIO | http://localhost:9000 (S3) / http://localhost:9001 (console) | `minio/minio` |

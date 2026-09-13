@@ -41,7 +41,7 @@ export default defineConfig({
         navigateFallback: "index.html",
       },
       devOptions: {
-        enabled: true // Ensures service workers test cleanly inside the Docker container
+        enabled: true // Ensures service workers test cleanly inside the local container
       }
     }),
   ],
