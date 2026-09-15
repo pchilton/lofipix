@@ -1,18 +1,16 @@
 import { Hono } from "hono";
 import { sql } from "drizzle-orm";
-import { getDb } from "./db";
+import { db as baseDb } from "@lofipix/db";
 
 const app = new Hono();
 
 app.get("/health", (c) => c.json({ status: "ok" }));
-
 app.get("/", (c) => c.json({ name: "lofipix api" }));
-
 app.get("/api/hello", (c) => c.json({ message: "hello from lofipix" }));
 
 app.get("/db/status", async (c) => {
   try {
-    await getDb().execute(sql`select 1`);
+    await baseDb.execute(sql`select 1`);
     return c.json({ status: "connected" });
   } catch (error) {
     console.error("Database health check failed:", error);

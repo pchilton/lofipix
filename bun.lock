@@ -10,6 +10,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@lofipix/db": "workspace:*",
+        "@lofipix/env": "workspace:*",
         "drizzle-orm": "^0.45.2",
         "hono": "^4.13.7",
       },
@@ -22,12 +23,20 @@
       "name": "@lofipix/db",
       "version": "1.0.0",
       "dependencies": {
+        "@lofipix/env": "workspace:*",
         "drizzle-orm": "latest",
         "postgres": "latest",
       },
       "devDependencies": {
         "@types/bun": "^1.4.2",
         "drizzle-kit": "latest",
+      },
+    },
+    "packages/env": {
+      "name": "@lofipix/env",
+      "version": "1.0.0",
+      "devDependencies": {
+        "@types/bun": "^1.4.2",
       },
     },
     "pwa": {
@@ -320,6 +329,8 @@
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
     "@lofipix/db": ["@lofipix/db@workspace:packages/db"],
+
+    "@lofipix/env": ["@lofipix/env@workspace:packages/env"],
 
     "@napi-rs/lzma-linux-x64-gnu": ["@napi-rs/lzma-linux-x64-gnu@1.5.1", "", { "os": "linux", "cpu": "x64" }, "sha512-oTXEIha4SsuXdTA4Iyskj0kpdx2yVXdhd75c2v3xGrHFfVMsbhTPZU/nMPL4sWKo4pBHm3aucLaqGlF696dTyQ=="],
 

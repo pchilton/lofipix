@@ -12,6 +12,7 @@
   "dependencies": {
     "drizzle-orm": "^0.45.2",
     "hono": "^4.13.7",
+    "@lofipix/env": "workspace:*",
     "@lofipix/db": "workspace:*"
   },
   "devDependencies": {
