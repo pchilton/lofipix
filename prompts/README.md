@@ -19,7 +19,7 @@ Rename the file from `NNNN-<slug>.md` to `NNNN-<slug>.done.md`
 - **One task per file.** If a task has two independent deliverables, split it into two prompts.
 - **Keep prompts lean.** Stable context (stack, conventions, architecture) belongs in `AGENTS.md` and `README.md` — reference those, don't restate them.
 - **Be explicit about scope.** "Out of scope" bullets prevent agents from gold-plating.
-- **Definition of Done must be checkable.** Prefer commands (`bunx typecheck`, `bunx test`) over vibes ("works correctly").
+- **Definition of Done must be checkable.** Prefer commands (`bun run build`, `bun run typecheck`) over vibes ("works correctly").
 - **Dependencies**: if a task depends on an earlier prompt, say so in Context.
 
 ## Example
