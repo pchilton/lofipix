@@ -10,8 +10,9 @@
     "typecheck": "bunx tsc --noEmit"
   },
   "dependencies": {
-    "solid-js": "^1.9.15",
-    "@lofipix/db": "workspace:*"
+    "@lofipix/db": "workspace:*",
+    "@tanstack/solid-router": "^1.170.36",
+    "solid-js": "^1.9.15"
   },
   "devDependencies": {
     "@types/bun": "^1.4.2",

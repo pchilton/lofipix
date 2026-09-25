@@ -84,7 +84,7 @@ graph TD
 | `models/` | Shared Zod models & TypeScript types | TypeScript |
 | `pwa/` | Progressive Web Application | SolidJS + TanStack Router + Vite + VitePWA, Bun |
 | `workers/` | CloudFlare Workers | JavaScript |
-| `www/` | Web app | SolidJS + Vite, static export, Bun |
+| `www/` | Web app | SolidJS + TanStack Router + Vite, static export, Bun |
 
 ## General technologies
 

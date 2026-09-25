@@ -1,4 +1,4 @@
-export default function App() {
+export default function Welcome() {
   return (
     <main>
       <h1>lofipix</h1>
