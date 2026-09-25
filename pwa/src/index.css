@@ -8,10 +8,22 @@ body {
   margin: 0;
 }
 
-main {
+body > div {
+  min-height: 100vh;
+}
+
+nav {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+main,
+section {
   display: grid;
   place-content: center;
-  min-height: 100vh;
+  min-height: 80vh;
   text-align: center;
 }
 

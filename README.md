@@ -82,7 +82,7 @@ graph TD
 | `mobile/android/` | Android app | React Native |
 | `mobile/ios/` | iOS app | React Native |
 | `models/` | Shared Zod models & TypeScript types | TypeScript |
-| `pwa/` | Progressive Web Application | SolidJS + Vite + VitePWA, Bun |
+| `pwa/` | Progressive Web Application | SolidJS + TanStack Router + Vite + VitePWA, Bun |
 | `workers/` | CloudFlare Workers | JavaScript |
 | `www/` | Web app | SolidJS + Vite, static export, Bun |
 
