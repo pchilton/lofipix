@@ -1,39 +1,56 @@
-import { join } from 'path';
+import { join, resolve } from 'node:path';
 import { parseEnv } from 'node:util';
 import { existsSync, readFileSync } from 'node:fs';
 
+const GLOBAL_KEY = '__lofipix_env_initialized__';
+
+type GlobalWithEnv = typeof globalThis & { [GLOBAL_KEY]?: boolean };
+
+function findEnvFile(fileName: string, startDirs: string[]): string | undefined {
+  for (const startDir of startDirs) {
+    let currentDir = resolve(startDir);
+    while (true) {
+      const candidate = join(currentDir, fileName);
+      if (existsSync(candidate)) {
+        return candidate;
+      }
+      const parentDir = join(currentDir, '..');
+      if (parentDir === currentDir) {
+        break;
+      }
+      currentDir = parentDir;
+    }
+  }
+  return undefined;
+}
+
 function initializeEnvironment() {
+  if ((globalThis as GlobalWithEnv)[GLOBAL_KEY]) {
+    return;
+  }
+  (globalThis as GlobalWithEnv)[GLOBAL_KEY] = true;
+
   const region = process.env.REGION;
   if (!region) {
-    throw new Error("❌ Deployment Error: The 'REGION' environment variable must be specified.");
+    throw new Error("The 'REGION' environment variable must be specified (e.g. REGION=cholet).");
   }
 
   const envFileName = `.env.${region}`;
-  
-  // Note: import.meta.dir here evaluates to packages/env/ 
-  let currentDir = import.meta.dir; 
-  let envFileFound = false;
+  const envFile = findEnvFile(envFileName, [process.cwd(), import.meta.dir]);
 
-  // Traverse up 4 levels to look for the file (covers packages/env/, packages/, root, and root's parent)
-  for (let depth = 0; depth < 4; depth++) {
-    const targetPath = join(currentDir, envFileName);
-    
-    if (existsSync(targetPath)) {
-      const envText = readFileSync(targetPath, 'utf8');
-      Object.assign(process.env, parseEnv(envText));
-      envFileFound = true;
-      break;
-    }
-    
-    currentDir = join(currentDir, '..');
+  if (!envFile) {
+    console.warn(`Warning: no "${envFileName}" file found from ${process.cwd()} or ${import.meta.dir}; relying on variables already present in the environment.`);
+    return;
   }
 
-  if (!envFileFound) {
-    console.warn(`⚠️ Warning: Region file "${envFileName}" could not be found up to 3 parent directories deep.`);
+  const parsed = parseEnv(readFileSync(envFile, 'utf8'));
+  for (const [key, value] of Object.entries(parsed)) {
+    if (process.env[key] === undefined) {
+      process.env[key] = value;
+    }
   }
 }
 
-// 💥 Triggers immediately on the absolute first import across the entire runtime execution
 initializeEnvironment();
 
 export const isEnvLoaded = true;
