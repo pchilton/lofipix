@@ -8,7 +8,6 @@ Individual development tasks live in `prompts/` — an agent asked to "implement
 lofipix is a multi-client app platform:
 
 - **Web app** — SolidJS + Vite, static export, Bun (`www/`)
-- **Mobile apps** — React Native (`mobile/android/`, `mobile/ios/`)
 - **PWA** — SolidJS + Vite + VitePWA, Bun (`pwa/`)
 - **Central API** — Hono + Bun + Drizzle ORM (`api/`)
 - **Database** — PostgreSQL, Drizzle schema + SQL migrations (`packages/db`, migrations in `packages/db/drizzle/`)
@@ -21,12 +20,12 @@ Deployment: Github Actions. The README (`README.md`) is the single source of tru
 
 ## Non-negotiables
 
-1. **Verify before claiming done.** Run the project's typecheck/tests after changes and report the real output. Never report success from assumption.
-2. **Keep the working tree clean.** Run `git status` before starting; commit related work in logical commits; never force-push or rewrite history.
-3. **Conventional commits.** `feat:`, `fix:`, `chore:`, `docs:` etc.
-4. **Database changes require a migration.** Never hand-edit the schema without a corresponding migration file in `packages/db/drizzle/`.
-5. **Don't invent files or APIs.** If the README or a prompt references something that doesn't exist yet, create it as part of the task or flag the gap — don't silently substitute something else.
-6. **Match the stack exactly.** TypeScript everywhere (no plain JS sources), Zod for shared validation, Drizzle for DB access. No alternative ORMs, frameworks, or validation libraries unless the prompt explicitly calls for them.
+- **Verify before claiming done.** Run the project's typecheck/tests after changes and report the real output. Never report success from assumption.
+- **Keep the working tree clean.** Run `git status` before starting; commit related work in logical commits; never force-push or rewrite history.
+- **Conventional commits.** `feat:`, `fix:`, `chore:`, `docs:` etc.
+- **Database changes require a migration.** Never hand-edit the schema without a corresponding migration file in `packages/db/drizzle/`.
+- **Don't invent files or APIs.** If the README or a prompt references something that doesn't exist yet, create it as part of the task or flag the gap — don't silently substitute something else.
+- **Match the stack exactly.** TypeScript everywhere (no plain JS sources), Zod for shared validation, Drizzle for DB access. No alternative ORMs, frameworks, or validation libraries unless the prompt explicitly calls for them.
 
 ## Conventions
 
