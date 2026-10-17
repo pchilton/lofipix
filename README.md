@@ -87,7 +87,7 @@ graph TD
 | `mobile/ios/` | iOS app | React Native |
 | `models/` | Shared Zod models & TypeScript types | TypeScript |
 | `pwa/` | Progressive Web Application | SolidJS + TanStack Router + Vite + VitePWA, Bun |
-| `scripts/` | Seed and operational scripts | TypeScript + Bun |
+| `scripts/` | Seed and operational scripts | TypeScript + Bun (workspace package) |
 | `workers/` | CloudFlare Workers | JavaScript |
 | `www/` | Web app | SolidJS + TanStack Router + Vite, static export, Bun |
 

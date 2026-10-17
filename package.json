@@ -6,11 +6,7 @@
     "api",
     "www",
     "pwa",
-    "packages/*"
-  ],
-  "scripts": {
-    "db:generate": "bun --filter @lofipix/db db:generate",
-    "db:migrate": "bun --filter @lofipix/db db:migrate",
-    "db:studio": "bun --filter @lofipix/db db:studio"
-  }
+    "packages/*",
+    "scripts"
+  ]
 }
