@@ -2,6 +2,8 @@ import { createRootRoute, createRoute, createRouter, Link, Outlet } from "@tanst
 
 import Welcome from "./routes/Welcome";
 import About from "./routes/About";
+import Login from "./routes/Login";
+import Dashboard from "./routes/Dashboard";
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -9,6 +11,8 @@ const rootRoute = createRootRoute({
       <nav>
         <Link to="/">Home</Link>
         <Link to="/about">About</Link>
+        <Link to="/login">Sign in</Link>
+        <Link to="/dashboard">Dashboard</Link>
       </nav>
       <Outlet />
     </>
@@ -27,7 +31,19 @@ const aboutRoute = createRoute({
   component: About,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, aboutRoute]);
+const loginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/login",
+  component: Login,
+});
+
+const dashboardRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/dashboard",
+  component: Dashboard,
+});
+
+const routeTree = rootRoute.addChildren([indexRoute, aboutRoute, loginRoute, dashboardRoute]);
 
 export const router = createRouter({ routeTree });
 

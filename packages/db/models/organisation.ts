@@ -1,11 +1,11 @@
-import { bigint, jsonb, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import { uuid, jsonb, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
 
 export const organisationDataSchema = z.record(z.string(), z.unknown());
 
 export const organisations = pgTable('organisations', {
-  id: bigint('id', { mode: 'number' }).primaryKey().generatedByDefaultAsIdentity(),
+  id: uuid('id').primaryKey().$defaultFn(() => Bun.randomUUIDv7()),
   name: text('name').notNull(),
   data: jsonb('data').$type<Record<string, unknown>>().notNull().default({}),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

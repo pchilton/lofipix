@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@lofipix/env": "workspace:*",
-    "drizzle-orm": "latest",
+    "drizzle-orm": "^0.45.2",
     "drizzle-zod": "^0.8.3",
     "postgres": "latest",
     "zod": "^4.6.5"

@@ -10,10 +10,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "drizzle-orm": "^0.45.2",
-    "hono": "^4.13.7",
+    "@lofipix/db": "workspace:*",
     "@lofipix/env": "workspace:*",
-    "@lofipix/db": "workspace:*"
+    "@openfga/sdk": "^0.9.7",
+    "better-auth": "^1.7.7",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.13.7"
   },
   "devDependencies": {
     "@types/bun": "^1.4.2",

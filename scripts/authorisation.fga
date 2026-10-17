@@ -1,0 +1,11 @@
+model
+  schema 1.1
+
+type user
+
+type organisation
+  relations
+    define member: [user]
+    define admin: [user]
+    define can_view: member
+    define can_manage: admin

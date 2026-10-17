@@ -1,5 +1,5 @@
 {
-  "id": "aa391ada-afe1-4e75-a72e-cc2eb12bc38f",
+  "id": "a5ff7193-7b2f-4950-9097-f7af8c2ef2f2",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -10,20 +10,9 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "bigint",
+          "type": "uuid",
           "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "byDefault",
-            "name": "organisations_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "9223372036854775807",
-            "cache": "1",
-            "cycle": false
-          }
+          "notNull": true
         },
         "name": {
           "name": "name",

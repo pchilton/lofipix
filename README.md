@@ -39,6 +39,7 @@ graph TD
     subgraph CoreBackend [Core Backend Engine]
         API[Central API Hub<br>Hono / Bun]
         DB[(PostgreSQL Database<br>Drizzle ORM)]
+        FGA[OpenFGA<br>Authorization Server]
     end
 
     StorageProxy[VPS Nginx Reverse Proxy<br>storage.lofipix.app<br>SSL Termination / Port Mapping]
@@ -56,6 +57,8 @@ graph TD
     Web & PWA & Android & iOS -->|Image Requests| StorageProxy
     Proxy -->|Local Reverse Proxy| API
     API <-->|Connection Pool| DB
+    API <-->|Relationship Checks| FGA
+    FGA <-->|Tuples| DB
 
     API -.->|Generate Pre-Signed URLs| Storage
     StorageProxy -->|Local Reverse Proxy| Storage
@@ -79,10 +82,12 @@ graph TD
 | `api/` | Central API | Hono + Bun + Drizzle ORM |
 | `config/` | Application configuration | .conf, .toml, .env, TypeScript |
 | `database/` | Database schema + SQL migrations | TypeScript + Drizzle ORM |
+| `docs/` | Architecture and operations documentation | Markdown |
 | `mobile/android/` | Android app | React Native |
 | `mobile/ios/` | iOS app | React Native |
 | `models/` | Shared Zod models & TypeScript types | TypeScript |
 | `pwa/` | Progressive Web Application | SolidJS + TanStack Router + Vite + VitePWA, Bun |
+| `scripts/` | Seed and operational scripts | TypeScript + Bun |
 | `workers/` | CloudFlare Workers | JavaScript |
 | `www/` | Web app | SolidJS + TanStack Router + Vite, static export, Bun |
 
@@ -90,6 +95,7 @@ graph TD
 
 - **Frontend**: SolidJS, React Native, Tailwind CSS
 - **Backend**: Bun, Hono, Drizzle ORM
+- **Authorization**: OpenFGA (ReBAC)
 - **Package manager**: Bun (`bun install`, `bun.lock`)
 - **Shared**: TypeScript, Zod, Shared Models
 - **Database**: PostgreSQL
