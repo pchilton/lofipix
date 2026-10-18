@@ -21,6 +21,13 @@ The primary way of capturing photos is by an offline-first, local-first PWA
 - uploads photos to cloud storage
 - photos from cloud storage optionally sync to Microsoft OneDrive or Google Drive
 
+## Photo Compression
+
+Photos compressed to under 300KB each using:
+- Resize to max 1280px width
+- JPEG quality reduction
+- Second pass (reducing quality) if still over target size
+
 ## Architecture
 
 ```mermaid
