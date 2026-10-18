@@ -31,5 +31,5 @@ if (!result.user) {
 console.log(`User seeded: ${result.user.email} (${result.user.id})`);
 
 // Link the user to an organisation with:
-// REGION=<region> bun scripts/seed-membership.ts --user "<user name>" --organisation "<organisation name>"
+// REGION=<region> bun scripts/seed-roles.ts --user "<user name>" --organisation "<organisation name>" [--role member]
 process.exit(0);

@@ -39,7 +39,6 @@ graph TD
     subgraph CoreBackend [Core Backend Engine]
         API[Central API Hub<br>Hono / Bun]
         DB[(PostgreSQL Database<br>Drizzle ORM)]
-        FGA[OpenFGA<br>Authorization Server]
     end
 
     StorageProxy[VPS Nginx Reverse Proxy<br>storage.lofipix.app<br>SSL Termination / Port Mapping]
@@ -57,8 +56,6 @@ graph TD
     Web & PWA & Android & iOS -->|Image Requests| StorageProxy
     Proxy -->|Local Reverse Proxy| API
     API <-->|Connection Pool| DB
-    API <-->|Relationship Checks| FGA
-    FGA <-->|Tuples| DB
 
     API -.->|Generate Pre-Signed URLs| Storage
     StorageProxy -->|Local Reverse Proxy| Storage
@@ -95,7 +92,7 @@ graph TD
 
 - **Frontend**: SolidJS, React Native, Tailwind CSS
 - **Backend**: Bun, Hono, Drizzle ORM
-- **Authorization**: OpenFGA (ReBAC)
+- **Authorization**: Role-based (`roles` table: owner, admin, member, finances)
 - **Package manager**: Bun (`bun install`, `bun.lock`)
 - **Shared**: TypeScript, Zod, Shared Models
 - **Database**: PostgreSQL

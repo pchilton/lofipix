@@ -15,6 +15,13 @@
       "when": 1792211840123,
       "tag": "0001_foamy_ikaris",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792299120092,
+      "tag": "0002_unique_junta",
+      "breakpoints": true
     }
   ]
 }

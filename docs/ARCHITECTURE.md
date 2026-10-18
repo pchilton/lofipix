@@ -32,7 +32,7 @@ The central coordinator that manages master records, handles OAuth exchanges, fi
 - Authentication Backend: Better Auth Server configured with the core auth tables (user, account, session, verification). Extended via plugins:
   - @better-auth/api-key: Automatically manages token generation tables for headless/hardware client verification loops.
   - genericOAuth: Manages the integration with Xero OAuth2, including token acquisition parameters (offline_access) and token lifecycle refresh logic.
-- Authorization Engine: OpenFGA checking relationship tuples (inspired by Google's Zanzibar paper) to authorize user resource access.
+- Authorization Engine: Role-based checks against the `roles` table (`owner`, `admin`, `member`, `finances`) scoped to an organisation.
 - Data Replication: Electric SQL Sync Service sitting alongside PostgreSQL to track logical replication logs and manage streaming data slices.
 - Reverse Proxy: Nginx acting as a standard high-performance proxy handling secure TLS Termination (HTTPS) at the edge.
 - Storage: SeaweedFS is configured with path buckets, proxied by nginx. Private bucket. All requests are signed for uploads and downloads.
@@ -82,7 +82,7 @@ Hardware & Virtual Devices ↔ Server Gateway
 Read-Path Data Sync (Server → All Clients)
 
 - Protocol: High-efficiency, continuous chunked HTTP streaming managed by Electric SQL.
-- Data Boundary Control: Clients hit a protected sync route on Hono providing their API Key. Hono runs an OpenFGA permission check and proxies back a highly specific Electric Shape filtered by SQL queries (e.g., where assigned_worker_id = 'resolved_user_id' AND status = 'queued'). This pushes JSON data deltas straight into the local PGlite instances of both browser tabs and background processes.
+- Data Boundary Control: Clients hit a protected sync route on Hono providing their API Key. Hono runs a role check against the `roles` table and proxies back a highly specific Electric Shape filtered by SQL queries (e.g., where assigned_worker_id = 'resolved_user_id' AND status = 'queued'). This pushes JSON data deltas straight into the local PGlite instances of both browser tabs and background processes.
 
 
 Write-Path Mutations (All Clients → Server)

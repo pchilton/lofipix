@@ -3,7 +3,6 @@ import { cors } from "hono/cors";
 import { sql } from "drizzle-orm";
 import { db as baseDb } from "@lofipix/db";
 import { allowedOrigins, auth } from "./auth";
-import { openfga } from "./authorization";
 
 const app = new Hono();
 
@@ -31,21 +30,6 @@ app.get("/db/status", async (c) => {
     return c.json({ status: "connected" });
   } catch (error) {
     console.error("Database health check failed:", error);
-    return c.json({ status: "disconnected" }, 503);
-  }
-});
-
-app.get("/authz/status", async (c) => {
-  try {
-    const { stores } = await openfga.listStores();
-    return c.json({
-      status: "connected",
-      storeId: process.env.OPENFGA_STORE_ID ?? null,
-      authorizationModelId: process.env.OPENFGA_AUTHORIZATION_MODEL_ID ?? null,
-      stores: stores?.length ?? 0,
-    });
-  } catch (error) {
-    console.error("OpenFGA health check failed:", error);
     return c.json({ status: "disconnected" }, 503);
   }
 });
