@@ -2,8 +2,11 @@
 
 nginx provides the reverse proxy for the API server and storage.
 
+## Requirements
+
 - Ensure that the API server is running
 - Ensure that SeaweedFS has been configured
+- Ensure that PowerSync is running
 
 ## Configuration
 
@@ -18,7 +21,7 @@ server {
 
     # Route 1: Direct standard API queries down to your Bun/Hono Server
     location /api/ {
-        proxy_pass http://127.0.0.1:3000; # Assuming Hono matches this port
+        proxy_pass http://127.0.0.1:5634; # Assuming Hono matches this port
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -45,6 +48,21 @@ server {
         
         # Lift standard upload boundaries so large payload packages pass cleanly
         client_max_body_size 500M;
+    }
+
+    # Route 3: Intercept PowerSync requests and proxy to self-hosted PowerSync Service (Docker)
+    location /powersync/ {
+        # Trailing slash strips the /powersync/ prefix: /powersync/health -> /health
+        proxy_pass http://127.0.0.1:5636/;
+
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
     }
 }
 ```

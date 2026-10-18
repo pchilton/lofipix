@@ -5,18 +5,35 @@ Individual development tasks live in `prompts/` — an agent asked to "implement
 
 ## What this project is
 
-lofipix is a multi-client app platform:
+lofipix is a multi-client app platform for panel-beaters to capture vehicle
+damage photos offline and sync them to cloud storage. The README (`README.md`)
+is the single source of truth for domain context (about, PWA behaviour, photo
+compression), architecture diagram, directory table, and stack — read it first,
+consult it during tasks, do not duplicate it in prompts.
 
-- **Web app** — SolidJS + Vite, static export, Bun (`www/`)
-- **PWA** — SolidJS + Vite + VitePWA, Bun (`pwa/`)
-- **Central API** — Hono + Bun + Drizzle ORM (`api/`)
+- **Web app** — React + TanStack Router/Start, static export, Bun (`www/`)
+- **PWA** — React + VitePWA, offline-first via PowerSync + OPFS, Bun (`pwa/`)
+- **Central API** — Hono + Bun + Drizzle ORM, source of truth (`api/`)
 - **Database** — PostgreSQL, Drizzle schema + SQL migrations (`packages/db`, migrations in `packages/db/drizzle/`)
 - **Storage** — SeaweedFS (S3-compatible)
 - **Shared models** — Zod schemas + TypeScript types (`packages/db/models/`)
 - **scripts** — `scripts/`
 - **Edge Functions** — `workers/` (Cloudflare Workers)
 
-Deployment: Github Actions. The README (`README.md`) is the single source of truth for architecture — consult it; do not duplicate it in prompts.
+Deployment: Github Actions.
+
+## Documentation index (`docs/`)
+
+Read the relevant file when a task touches its area:
+
+- `docs/ARCHITECTURE.md` — target technology stacks for `www/`, `pwa/`, `api/`, shared models, frontend conventions, communication channels.
+- `docs/WEBSITE.md` — website storyboard: pages, contents, user journey (marketing → dashboard → account/billing).
+- `docs/WEBAPP.md` — PWA storyboard: offline capture loop (dashboard → create → capture → finish → submit).
+- `docs/ROLES.md` — role-based authorization (`roles` table, API usage, seeding).
+- `docs/STORAGE.md` — SeaweedFS setup, buckets, auth, systemd service.
+- `docs/DEPLOYMENT.md` — deployment targets, domains, auth cookies.
+- `docs/NGINX.md` — nginx reverse proxy for API and storage.
+- `docs/UPTRACE.md` — self-hosted observability (Docker skeleton + instrumentation map).
 
 ## Non-negotiables
 

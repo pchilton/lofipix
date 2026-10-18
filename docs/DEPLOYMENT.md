@@ -24,9 +24,15 @@ Authentication uses "Better Auth". Authentication is handled by the API, setting
 
 ## Oceania VPS
 
-- `oceania.lofipix.app` - VPS hosting, base DNS name
+- `oceania.lofipix.app` - Primary API
 
-## Staging DNS
+Locations to service via nginx reverse proxy:
+
+- `/storage-oceania-lofipix/` - SeaweedFS S3 API, using path-based bucket routing
+- `/api/` - Standard API queries via Hono
+- `/powersync/` - Real-time data sync via PowerSync
+
+## Staging VPS
 
 Hosted on cairngorm
 
