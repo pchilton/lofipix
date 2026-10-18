@@ -1,105 +1,109 @@
 # Technology stacks
 
+Target stack for `www/`, `pwa/`, and `api/`. The central API in `api/` backed by
+PostgreSQL is the source of truth; clients are offline-capable views over it.
+
 ## Website (/www)
 
-Public website, describing the tools. Organisation signup. Billing. Account management.
+Public website: product description, organisation signup, billing, account management.
 
-- UI Framework & Build Tools: SolidJS built with Vite under a unified Bun Workspace monorepo structure.
-- Design System: Tark UI (powered by Ark UI framework-agnostic state machines and styled using Tailwind CSS utilities).
-- Client Routing: TanStack Router managing type-safe client-side single page application (SPA) pathways and layout-level auth guards.
-- Authentication Hooks: Better Auth Client handles user login states, redirection flows, and cookie sessions.
-- Local Data Storage: None. Interact with the API for
+- UI Framework & Build Tools: React built with Vite under a unified Bun workspace monorepo structure. Components are declarative.
+- Routing & SSR: TanStack Router / TanStack Start managing type-safe client-side routes, layout-level auth guards, and static export.
+- Design System: shadcn/ui + Tailwind CSS.
+- Data Fetching: TanStack Query for data fetching and caching with automatic retry logic. Used for auth, uploads, and non-synced API state. No direct `fetch()` calls in components; use typed API modules.
+- Forms: TanStack Form + Zod.
+- Client State: Zustand for local UI state.
+- Animation: Motion JS.
+- Authentication Hooks: Better Auth client handles login states, redirection flows, and cookie sessions.
+- Validation: Every API response consumed here has a Zod schema (shared from `packages/db/models/`). TypeScript strictly; no `any` in domain models.
+- Async UX: Every async operation has explicit loading, error, success, and offline states.
+- Testing: Vitest + Playwright.
+- Local Data Storage: None. Interacts with the API for all persistence.
 
 ## PWA Web Stack (/pwa)
 
-Local-first application for capturing photos.
+Local-first, offline-first application for capturing photos.
 
-- UI Framework & Build Tools: SolidJS built with Vite under a unified Bun Workspace monorepo structure.
-- Design System: Tark UI (powered by Ark UI framework-agnostic state machines and styled using Tailwind CSS utilities).
-- Client Routing: TanStack Router managing type-safe client-side single page application (SPA) pathways and layout-level auth guards.
-- Local Data Store: PGlite running an in-memory/IndexedDB WebAssembly Postgres engine directly inside the browser sandbox.
-- Reactivity Interface: TanStack DB wrapping PGlite to provide live, synchronized component tracking signals.
-- Authentication Hooks: Better Auth Client handles user login states, redirection flows, and cookie sessions.
-
+- UI Framework & Build Tools: React built with Vite + VitePWA under a unified Bun workspace monorepo structure. Components are declarative.
+- Routing: TanStack Router managing type-safe SPA pathways and layout-level auth guards.
+- Design System: shadcn/ui + Tailwind CSS.
+- Local Database: SQLite in the browser via the PowerSync Web SDK with OPFS-backed SQLite.
+- Sync Engine: PowerSync for offline-first data synchronization against the PowerSync Service (PostgreSQL-to-SQLite sync). Handles retries, queue depth, and accepted/rejected operations.
+- Reactivity Interface: TanStack DB for reactive UI collections over the local SQLite store and synchronization state.
+- Non-synced State: TanStack Query for auth, uploads, and non-synced API state, with automatic retry logic. No direct `fetch()` calls in components; use typed API modules.
+- Forms: TanStack Form + Zod.
+- Client State: Zustand for local UI state.
+- Animation: Motion JS.
+- Binary Files: OPFS for local image files. Remote originals live in SeaweedFS (S3-compatible); the API issues pre-signed URLs — clients never hold S3 credentials.
+- Soft Deletes: Tables use tombstones / soft-delete rows so deletes propagate through sync instead of disappearing.
+- Validation: Every API response and database record has a Zod schema. TypeScript strictly; no `any` in domain models.
+- Async UX: Every async operation has explicit loading, error, success, and offline states.
+- Authentication Hooks: Better Auth client handles login states, redirection flows, and cookie sessions.
+- Testing: Vitest + Playwright.
 
 ## The Server/API Stack (/api)
 
-The central coordinator that manages master records, handles OAuth exchanges, filters client sync windows, and hosts the application gateway.
+The central coordinator and source of truth: manages master records, handles auth,
+filters client sync windows, hosts the application gateway, and issues storage credentials.
 
-- Core API Gateway: Hono running natively on the Bun Runtime for high-performance HTTP and streaming capabilities.
-- Database Management: Drizzle ORM handling TypeScript type generation and automated multi-schema migrations.
-- Data Persistence: PostgreSQL.
-- Authentication Backend: Better Auth Server configured with the core auth tables (user, account, session, verification). Extended via plugins:
-  - @better-auth/api-key: Automatically manages token generation tables for headless/hardware client verification loops.
-  - genericOAuth: Manages the integration with Xero OAuth2, including token acquisition parameters (offline_access) and token lifecycle refresh logic.
-- Authorization Engine: Role-based checks against the `roles` table (`owner`, `admin`, `member`, `finances`) scoped to an organisation.
-- Data Replication: Electric SQL Sync Service sitting alongside PostgreSQL to track logical replication logs and manage streaming data slices.
-- Reverse Proxy: Nginx acting as a standard high-performance proxy handling secure TLS Termination (HTTPS) at the edge.
-- Storage: SeaweedFS is configured with path buckets, proxied by nginx. Private bucket. All requests are signed for uploads and downloads.
+- Core API Gateway: Hono running natively on the Bun runtime. This is the source of truth for all domain data.
+- Data Persistence: PostgreSQL as the source of truth.
+- Database Management: Drizzle ORM handling TypeScript type generation and migrations (`packages/db`, migrations in `packages/db/drizzle/`).
+- Soft Deletes: Tombstone / soft-delete rows on synced tables so PowerSync clients converge correctly.
+- Validation: Every API response and database record has a Zod schema, shared from `packages/db/models/`.
+- Authentication Backend: Better Auth server configured with the core auth tables (user, account, session, verification). Extended via plugins:
+  - @better-auth/api-key: token generation tables for headless/hardware client verification loops.
+  - genericOAuth: integration with Xero OAuth2, including token acquisition parameters (offline_access) and token lifecycle refresh logic.
+- Authorization Engine: Role-based checks against the `roles` table (`owner`, `admin`, `member`, `finances`) scoped to an organisation via `roles.organisation_id`. Checks live in `api/src/authorization.ts`; see `docs/ROLES.md`.
+- Data Replication: PowerSync Service sitting alongside PostgreSQL to track changes and serve Postgres-to-SQLite sync deltas to PWA clients.
+- Background Jobs: pgmq (Postgres-hosted queue) for async work such as image conversion and sync outbox processing.
+- Reverse Proxy: Nginx as a high-performance proxy handling TLS termination (HTTPS) at the edge.
+- Storage: SeaweedFS (S3-compatible object storage) with path buckets behind nginx. Private buckets. All uploads/downloads use API-generated pre-signed URLs.
+- Observability: Instrumented for Uptrace (see `docs/UPTRACE.md`).
 
-## The Shared Core Workspace (packages/db-schema)
+## The Shared Core Workspace (packages/db/models)
 
-- Single Source of Truth: A single location for Drizzle table definitions.
-- Validation Mapping: Leverages drizzle-zod to automatically translate table columns into Zod schema parsers, providing validation rules shared across all apps.
-- Schema Extension: The account table features a custom JSONB column to securely hold Xero metadata structures, such as accessible connection lists (tenants) and the active profile identifier (activeTenantId).
+- Single Source of Truth: Drizzle table definitions plus their Zod schemas in `packages/db/models/`, imported by API and clients — do not re-define them locally.
+- Validation Mapping: `drizzle-zod` translates table columns into Zod schema parsers shared across all apps. Every database record and API response has a schema.
+- Strict Types: TypeScript strictly; no `any` in domain models.
+- Soft Deletes: Tombstone columns (e.g. `deleted_at` / `is_deleted`) on synced tables.
+- Schema Extension: The account table features a custom JSONB column holding Xero metadata structures, such as accessible connection lists (tenants) and the active profile identifier (activeTenantId).
 
-## The Desktop Client Stack (apps/desktop-electron)
+## Frontend conventions (www/ + pwa/)
 
-The physical hardware worker wrapper providing automated script compilation and task execution in a responsive container shell.
-- App Shell: ElectronJS orchestrating window states and operating system integration hooks.
-- Main Process Hub: Runs PGlite locally to disk for offline data persistence, coupled with a background Electric SQL Client instance to handle data fetching.
-- Embedded Dependencies (extraResources): Platform-specific pre-compiled binaries for the Bun execution runtime and a Portable Python sandbox environment bundled directly inside the production distribution.
+These rules apply to all React clients:
 
-
-## The Virtual Device Stack (apps/virtual-device)
-
-The headless cloud worker variant running inside a Docker container on a VPS, mimicking hardware architecture on an automated scale.
-- Runtime Core: The Headless Worker Core npm package (packages/worker-core) shared with Electron. It boots a raw Bun daemon script completely devoid of Electron/Chromium viewport dependencies.
-- Container Blueprint: Multi-stage Dockerfile running on a lightweight Linux footprint. It pre-installs identical targeted platform footprints of Bun and Portable Python to match Electron's runtime layout exactly.
-- Data Volume Persistence: Docker volume mappings allocated to store the local PGlite database file, preserving state history across container recreation cycles.
-
-
-
+- Declarative React components only.
+- No direct `fetch()` calls in components; use typed API modules.
+- TanStack Query for server state (auth, uploads, non-synced API state) with automatic retry.
+- TanStack DB for reactive UI collections (PWA local + synced data).
+- TanStack Router / TanStack Start for routing.
+- TanStack Form + Zod for forms.
+- Zustand for ephemeral client state; Motion JS for animation; shadcn/ui + Tailwind for UI.
+- Every async operation surfaces loading, error, success, and offline states.
 
 # Communication channels
 
 Web App ↔ Server API Gateway
 
-- Protocol: Standard HTTPS request/response lanes.
-- Auth State: Cookie-based user sessions managed automatically by Better Auth.
-- Xero Connection: Clicking "Connect Xero" prompts a redirection path to Xero's authorization screen. On callback success, Hono queries Xero's connection API, saves the valid multi-tenant profile mappings directly into the account's JSONB metadata column via Drizzle, and routes the user back to the web SPA.
+- Protocol: Standard HTTPS request/response.
+- Auth State: Cookie-based user sessions managed by Better Auth.
+- Data Access: Typed API modules validated with shared Zod schemas; TanStack Query handles caching and retry.
+- Xero Connection: Clicking "Connect Xero" redirects to Xero's authorization screen. On callback success, Hono queries Xero's connection API, saves the valid multi-tenant profile mappings into the account's JSONB metadata column via Drizzle, and routes the user back to the SPA.
 
+PWA Read-Path Data Sync (Server → PWA)
 
-Hardware & Virtual Devices ↔ Server Gateway
+- Protocol: PowerSync sync deltas from the PowerSync Service (Postgres-to-SQLite) into the PowerSync Web SDK's OPFS-backed SQLite instance.
+- Data Boundary Control: Clients authenticate (Better Auth session / API key); Hono runs a role check against the `roles` table scoped to `organisation_id` and exposes only the permitted sync window (e.g. rows for the user's organisations). Deletes arrive as tombstone rows.
+- Local Reactivity: TanStack DB wraps the local SQLite collections to provide live, reactive UI updates, including offline states.
 
-- Protocol: Pure HTTPS communication. All requests route directly through Nginx's secure port.
-- Auth State: Bypasses cookie structures completely. Devices authenticate by passing a persistent client token inside the HTTP headers (Authorization: Bearer tk_desktop_...). Hono's middleware resolves this token using Better Auth's API Key hashing engine.
-- Device Onboarding:
-    - Physical Apps: Users click "Generate Token" inside the Web SPA dashboard, copy the token string, and paste it into Electron's input layout (which stores it in the OS Keychain).
-    - Virtual Apps: The central Hono API orchestrates virtual worker creation programmatically. It hits Better Auth's plugin engine to generate a token, provisions a virtual machine identifier, and injects them as standard OS environment variables during the container's docker run lifecycle.
+PWA Write-Path Mutations (PWA → Server)
 
+- Protocol: PowerSync uploads for synced collections (with accepted/rejected operation handling, retries, queue-depth observability), plus unidirectional HTTPS POSTs for non-synced operations (auth, uploads, one-off mutations).
+- Path Flow: Status mutations and account changes resolve in Hono against PostgreSQL (the source of truth) and fan back out through PowerSync deltas.
+- Binary Uploads: Images are written to OPFS locally, then uploaded to SeaweedFS via API-issued pre-signed URLs; conversion metadata (dimensions, page number, duration) is tracked as a custom Uptrace span.
 
-Read-Path Data Sync (Server → All Clients)
+Image / Object Storage
 
-- Protocol: High-efficiency, continuous chunked HTTP streaming managed by Electric SQL.
-- Data Boundary Control: Clients hit a protected sync route on Hono providing their API Key. Hono runs a role check against the `roles` table and proxies back a highly specific Electric Shape filtered by SQL queries (e.g., where assigned_worker_id = 'resolved_user_id' AND status = 'queued'). This pushes JSON data deltas straight into the local PGlite instances of both browser tabs and background processes.
-
-
-Write-Path Mutations (All Clients → Server)
-
-- Protocol: Unidirectional HTTP POST requests.
-- Path Flow: Clients never push changes through the replication sync engine. Status mutations (e.g., marking a task complete or altering an active Xero tenant ID) bypass Electric and target dedicated Hono API routes directly, updating the master PostgreSQL cluster.
-
-
-
-Electron/Daemon Main Process ↔ Spawned Task Workers
-
-- Protocol: Local operating system Inter-Process Communication (IPC / child_process).
-- Execution Trigger: The background core inspects the incoming task profile payload. It reads the target runtime property (python or bun) and spawns an isolated container thread, feeding run parameters and dependencies down via command-line arguments (argv).
-- Logging Pipelines: Child processes handle calculations headlessly, piping standard terminal streams (stdout/stderr) back up to the parent application process to log task velocity and progress metrics.
-
-Local Offline Reconciliation (Transactional Outbox)
-
-- When a background script finishes execution, the main app process wraps data operations into a single atomic transaction block inside PGlite.
-- It updates the local tasks status to completed while inserting a pending transmission request record into a local sync_outbox table.
-- A background supervisor loop watches the outbox table sequentially. It attempts delivery upstream to Hono over HTTPS and deletes the item from the outbox queue only after receiving a verified 200 OK network confirmation, safeguarding tasks against device network loss or sudden power shutdowns.
+- Protocol: HTTPS to SeaweedFS via nginx reverse proxy, using pre-signed URLs generated by the Hono API.
+- Clients never hold S3 credentials. OPFS holds the local PWA copy; SeaweedFS holds the canonical object.

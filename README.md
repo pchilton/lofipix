@@ -1,5 +1,26 @@
 # lofipix
 
+## About
+
+LoFi Pix is a system initially targeted at panel-beaters (auto body repair shops) to capture and upload vehicle damage photos on their mobile device.
+They are stored as albums.
+Photos are reduced in size and quality to minimize data usage.
+These are uploaded to cloud storage.
+These are then synced to clients own storage, such as a OneDrive folder, or a Google Drive folder.
+These can then be attached to emails, where 10-20 photos will fit under 10MB.
+
+There is a public website detailing what LoFi Pix is, and administer organisations, users, albums and photos.
+The primary way of capturing photos is by an offline-first, local-first PWA
+
+## General PWA behaviour
+
+- create an album. usually with a vehicle plate number
+- option to add in "notes", which will be added to the album as notes.txt
+- take 6-20 photos per vehicle
+- compress photos locally, to under 300kb (saves mobile data)
+- uploads photos to cloud storage
+- photos from cloud storage optionally sync to Microsoft OneDrive or Google Drive
+
 ## Architecture
 
 ```mermaid
@@ -15,18 +36,10 @@ graph TD
         CFPWA[pwa.lofipix.app<br>from pwa/ folder]
     end
 
-    %% App Stores
-    subgraph AppStores [App Stores]
-        GooglePlay[Google Play<br>from mobile/android/ folder]
-        AppleStore[Apple Store<br>from mobile/ios/ folder]
-    end
-
     %% Client Tier
     subgraph ClientInterfaces [Client Interfaces]
-        Web[Web App<br>SolidJS / Static Export]
-        PWA[PWA Web App<br>SolidJS / Static Export]
-        Android[Android App<br>React Native]
-        iOS[iOS App<br>React Native]
+        Web[Web App<br>React / Static Export]
+        PWA[PWA Web App<br>React / Offline-first<br>PowerSync + OPFS]
     end
 
     %% Network Entry
@@ -37,8 +50,10 @@ graph TD
 
     %% Core Services
     subgraph CoreBackend [Core Backend Engine]
-        API[Central API Hub<br>Hono / Bun]
-        DB[(PostgreSQL Database<br>Drizzle ORM)]
+        API[Central API Hub<br>Hono / Bun<br>Source of Truth]
+        DB[(PostgreSQL Database<br>Drizzle ORM<br>Source of Truth)]
+        Sync[PowerSync Service<br>Postgres-to-SQLite Sync]
+        Queue[pgmq Background Jobs<br>Postgres Queue]
     end
 
     StorageProxy[VPS Nginx Reverse Proxy<br>storage.lofipix.app<br>SSL Termination / Port Mapping]
@@ -48,22 +63,22 @@ graph TD
     %% Hosting Routes
     CFWeb -->|Serves Static Site| Web
     CFPWA -->|Serves Static Site| PWA
-    GooglePlay -->|Distributes| Android
-    AppleStore -->|Distributes| iOS
 
     %% Traffic Routes
-    Web & PWA & Android & iOS -->|API Requests| Proxy
-    Web & PWA & Android & iOS -->|Image Requests| StorageProxy
+    Web & PWA -->|API Requests| Proxy
+    Web & PWA -->|Image Requests| StorageProxy
     Proxy -->|Local Reverse Proxy| API
     API <-->|Connection Pool| DB
 
     API -.->|Generate Pre-Signed URLs| Storage
     StorageProxy -->|Local Reverse Proxy| Storage
+    DB <-->|Logical Replication| Sync
+    Sync -.->|Sync Deltas| PWA
+    API <-->|Enqueue / Consume| Queue
 
     %% Layout Classes for Styling
     style CFWorkers fill:#1e3a5f,stroke:#64748b,stroke-width:2px,color:#fff
     style CloudFlare fill:#1e3a5f,stroke:#64748b,stroke-width:2px,color:#fff
-    style AppStores fill:#312e81,stroke:#64748b,stroke-width:2px,color:#fff
     style ClientInterfaces fill:#0f3d3e,stroke:#2dd4bf,stroke-width:2px,color:#fff
     style CoreBackend fill:#3b1f2b,stroke:#fb7185,stroke-width:2px,color:#fff
     style Proxy fill:#334155,stroke:#64748b,stroke-width:2px,color:#fff
@@ -76,25 +91,26 @@ graph TD
 
 | Path | Description | Technology |
 | --- | --- | --- |
-| `api/` | Central API | Hono + Bun + Drizzle ORM |
-| `config/` | Application configuration | .conf, .toml, .env, TypeScript |
-| `database/` | Database schema + SQL migrations | TypeScript + Drizzle ORM |
-| `docs/` | Architecture and operations documentation | Markdown |
-| `mobile/android/` | Android app | React Native |
-| `mobile/ios/` | iOS app | React Native |
-| `models/` | Shared Zod models & TypeScript types | TypeScript |
-| `pwa/` | Progressive Web Application | SolidJS + TanStack Router + Vite + VitePWA, Bun |
+| `api/` | Central API, source of truth | Hono + Bun + Drizzle ORM + PostgreSQL + PowerSync Service + pgmq |
+| `packages/db/` | Database schema + SQL migrations | TypeScript + Drizzle ORM + PostgreSQL (tombstones / soft deletes) Shared Zod models & TypeScript types | TypeScript (strict, no `any` in domain models) + Zod |
+| `docs/` | Architecture and operations documentation | Markdown (see `ARCHITECTURE.md`, `UPTRACE.md`) |
+| `pwa/` | Progressive Web Application, offline-first | React + TanStack Router + Vite + VitePWA + PowerSync Web SDK (OPFS-backed SQLite) + TanStack DB + TanStack Query, Bun |
 | `scripts/` | Seed and operational scripts | TypeScript + Bun (workspace package) |
 | `workers/` | CloudFlare Workers | JavaScript |
-| `www/` | Web app | SolidJS + TanStack Router + Vite, static export, Bun |
+| `www/` | Web app | React + TanStack Router / TanStack Start + Vite, static export, Bun + shadcn/ui + TanStack Query |
 
 ## General technologies
 
-- **Frontend**: SolidJS, React Native, Tailwind CSS
-- **Backend**: Bun, Hono, Drizzle ORM
+- **Frontend**: React (declarative components), Tailwind CSS + shadcn/ui, TanStack Router / TanStack Start, TanStack Query (data fetching + caching with automatic retry), TanStack DB (reactive UI collections), TanStack Form + Zod, Zustand, Motion
+- **PWA client storage**: OPFS for local binary/image files, OPFS-backed SQLite via PowerSync Web SDK
+- **Sync**: PowerSync for offline-first data synchronization (PowerSync Service: PostgreSQL-to-SQLite; PowerSync Web SDK on client)
+- **Backend**: Bun, Hono (central API, source of truth), Drizzle ORM, PostgreSQL (source of truth), PowerSync Service, pgmq for background jobs
 - **Authorization**: Role-based (`roles` table: owner, admin, member, finances)
 - **Package manager**: Bun (`bun install`, `bun.lock`)
-- **Shared**: TypeScript, Zod, Shared Models
-- **Database**: PostgreSQL
-- **Storage**: SeaweedFS (S3-compatible)
+- **Shared**: TypeScript (strict, no `any` in domain models), Zod (every API response and database record has a schema), Shared Models, typed API modules (no direct `fetch()` calls in components)
+- **Async state**: Every async operation has explicit loading, error, success, and offline states
+- **Database**: PostgreSQL with tombstones / soft-delete rows
+- **Storage**: SeaweedFS (S3-compatible); clients use pre-signed URLs generated by the API, never S3 credentials directly
+- **Testing**: Vitest + Playwright
+- **Observability**: Uptrace (self-hosted; see `docs/UPTRACE.md`)
 - **Deployment**: VPS, GitHub Actions
