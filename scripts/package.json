@@ -9,7 +9,9 @@
   "dependencies": {
     "@lofipix/db": "workspace:*",
     "@lofipix/env": "workspace:*",
-    "drizzle-orm": "^0.45.2"
+    "better-auth": "1.7.11",
+    "drizzle-orm": "^0.45.2",
+    "postgres": "latest"
   },
   "devDependencies": {
     "@types/bun": "^1.4.2",

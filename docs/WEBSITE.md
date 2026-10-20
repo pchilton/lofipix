@@ -62,7 +62,7 @@ Manage users and devices within the organisation.
 
 - **Members**: list by role (`owner`, `admin`, `member`, `finances`), invite/remove, change role.
 - **Devices**: list registered clients / API tokens, revoke.
-- All checks scoped to `organisation_id` (see `docs/ROLES.md`).
+- All checks scoped to the organisation via the Better Auth organisation plugin (see `docs/AUTHENTICATION.md`).
 
 ### 7. Billing (`/billing`)
 

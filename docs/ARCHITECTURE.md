@@ -48,26 +48,23 @@ filters client sync windows, hosts the application gateway, and issues storage c
 
 - Core API Gateway: Hono running natively on the Bun runtime. This is the source of truth for all domain data.
 - Data Persistence: PostgreSQL as the source of truth.
-- Database Management: Drizzle ORM handling TypeScript type generation and migrations (`packages/db`, migrations in `packages/db/drizzle/`).
+- Database Management: Drizzle ORM for application tables in `public` (schema-as-source-of-truth, synced with `drizzle-kit push`); Better Auth syncs its own tables into the `auth` schema (see `docs/AUTHENTICATION.md`).
 - Soft Deletes: Tombstone / soft-delete rows on synced tables so PowerSync clients converge correctly.
 - Validation: Every API response and database record has a Zod schema, shared from `packages/db/models/`.
-- Authentication Backend: Better Auth server configured with the core auth tables (user, account, session, verification). Extended via plugins:
-  - @better-auth/api-key: token generation tables for headless/hardware client verification loops.
-  - genericOAuth: integration with Xero OAuth2, including token acquisition parameters (offline_access) and token lifecycle refresh logic.
-- Authorization Engine: Role-based checks against the `roles` table (`owner`, `admin`, `member`, `finances`) scoped to an organisation via `roles.organisation_id`. Checks live in `api/src/authorization.ts`; see `docs/ROLES.md`.
+- Authentication Backend: Better Auth (config in `packages/db/auth.ts`, tables in the `auth` schema). See `docs/AUTHENTICATION.md` for methods and plugins.
+- Authorization Engine: enforced via the Better Auth organisation plugin (organisation / member tables in the `auth` schema). See `docs/AUTHENTICATION.md`.
 - Data Replication: PowerSync Service sitting alongside PostgreSQL to track changes and serve Postgres-to-SQLite sync deltas to PWA clients.
 - Background Jobs: pgmq (Postgres-hosted queue) for async work such as image conversion and sync outbox processing.
 - Reverse Proxy: Nginx as a high-performance proxy handling TLS termination (HTTPS) at the edge.
 - Storage: SeaweedFS (S3-compatible object storage) with path buckets behind nginx. Private buckets. All uploads/downloads use API-generated pre-signed URLs.
 - Observability: Instrumented for Uptrace (see `docs/UPTRACE.md`).
 
-## The Shared Core Workspace (packages/db/models)
+## The Shared Core Workspace (packages/db)
 
-- Single Source of Truth: Drizzle table definitions plus their Zod schemas in `packages/db/models/`, imported by API and clients — do not re-define them locally.
+- Single Source of Truth: local Drizzle table definitions plus their Zod schemas in `packages/db/models/`, imported by API and clients — do not re-define them locally. Type-only Better Auth proxies live in `packages/db/external/` (no table definitions, so `push` never touches the `auth` schema).
 - Validation Mapping: `drizzle-zod` translates table columns into Zod schema parsers shared across all apps. Every database record and API response has a schema.
 - Strict Types: TypeScript strictly; no `any` in domain models.
 - Soft Deletes: Tombstone columns (e.g. `deleted_at` / `is_deleted`) on synced tables.
-- Schema Extension: The account table features a custom JSONB column holding Xero metadata structures, such as accessible connection lists (tenants) and the active profile identifier (activeTenantId).
 
 ## Frontend conventions (www/ + pwa/)
 
@@ -94,7 +91,7 @@ Web App ↔ Server API Gateway
 PWA Read-Path Data Sync (Server → PWA)
 
 - Protocol: PowerSync sync deltas from the PowerSync Service (Postgres-to-SQLite) into the PowerSync Web SDK's OPFS-backed SQLite instance.
-- Data Boundary Control: Clients authenticate (Better Auth session / API key); Hono runs a role check against the `roles` table scoped to `organisation_id` and exposes only the permitted sync window (e.g. rows for the user's organisations). Deletes arrive as tombstone rows.
+- Data Boundary Control: Clients authenticate (Better Auth session); Hono checks organisation membership via the Better Auth organisation plugin and exposes only the permitted sync window (e.g. rows for the user's organisations). Deletes arrive as tombstone rows.
 - Local Reactivity: TanStack DB wraps the local SQLite collections to provide live, reactive UI updates, including offline states.
 
 PWA Write-Path Mutations (PWA → Server)

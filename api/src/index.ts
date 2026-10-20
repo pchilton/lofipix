@@ -1,24 +1,8 @@
 import { Hono } from "hono";
-import { cors } from "hono/cors";
 import { sql } from "drizzle-orm";
 import { db as baseDb } from "@lofipix/db";
-import { allowedOrigins, auth } from "./auth";
 
 const app = new Hono();
-
-app.use(
-  "/api/auth/*",
-  cors({
-    origin: allowedOrigins,
-    allowHeaders: ["Content-Type", "Authorization"],
-    allowMethods: ["POST", "GET", "OPTIONS"],
-    exposeHeaders: ["Content-Length"],
-    maxAge: 600,
-    credentials: true,
-  }),
-);
-
-app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
 app.get("/health", (c) => c.json({ status: "ok" }));
 app.get("/", (c) => c.json({ name: "lofipix api" }));
