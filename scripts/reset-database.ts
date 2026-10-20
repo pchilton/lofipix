@@ -25,15 +25,15 @@ const FORBIDDEN_PUBLIC_TABLES = [
   'member',
   'invitation',
   'jwks',
-  'organisations',
-  'roles',
 ];
 
 async function resetSchemas(client: postgres.Sql): Promise<void> {
-  await client.unsafe('DROP SCHEMA IF EXISTS auth CASCADE');
   await client.unsafe('DROP SCHEMA IF EXISTS public CASCADE');
-  await client.unsafe('CREATE SCHEMA auth');
+  await client.unsafe('DROP SCHEMA IF EXISTS auth CASCADE');
+  await client.unsafe('DROP SCHEMA IF EXISTS drizzle CASCADE');
   await client.unsafe('CREATE SCHEMA public');
+  await client.unsafe('CREATE SCHEMA drizzle');
+  await client.unsafe('CREATE SCHEMA auth');
 }
 
 async function syncAuthSchema(): Promise<void> {

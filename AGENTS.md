@@ -29,7 +29,6 @@ Read the relevant file when a task touches its area:
 - `docs/ARCHITECTURE.md` — target technology stacks for `www/`, `pwa/`, `api/`, shared models, frontend conventions, communication channels.
 - `docs/WEBSITE.md` — website storyboard: pages, contents, user journey (marketing → dashboard → account/billing).
 - `docs/WEBAPP.md` — PWA storyboard: offline capture loop (dashboard → create → capture → finish → submit).
-- `docs/ROLES.md` — removed (local `roles` table replaced by the Better Auth organisation plugin).
 - `docs/AUTHENTICATION.md` — Better Auth setup: config (`packages/db/auth.ts`), `auth`-schema tables per plugin, the two-step sync process, and `packages/db/external` type proxies.
 - `docs/STORAGE.md` — SeaweedFS setup, buckets, auth, systemd service.
 - `docs/DEPLOYMENT.md` — deployment targets, domains, auth cookies.
