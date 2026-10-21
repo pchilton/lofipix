@@ -45,8 +45,8 @@ graph TD
 
     %% Client Tier
     subgraph ClientInterfaces [Client Interfaces]
-        Web[Web App<br>React / Static Export]
-        PWA[PWA Web App<br>React / Offline-first<br>PowerSync + OPFS]
+        Web[Website<br>SolidJS / Static Export<br>No local storage]
+        PWA[PWA Web App<br>SolidJS / Offline-first<br>PowerSync + OPFS]
     end
 
     %% Network Entry
@@ -101,14 +101,15 @@ graph TD
 | `api/` | Central API, source of truth | Hono + Bun + Drizzle ORM + PostgreSQL + PowerSync Service + pgmq |
 | `packages/db/` | Database schema (Drizzle `push`) + Better Auth config | TypeScript + Drizzle ORM + PostgreSQL + Better Auth (auth schema) |
 | `docs/` | Architecture and operations documentation | Markdown (see `ARCHITECTURE.md`, `AUTHENTICATION.md`, `UPTRACE.md`) |
-| `pwa/` | Progressive Web Application, offline-first | React + TanStack Router + Vite + VitePWA + PowerSync Web SDK (OPFS-backed SQLite) + TanStack DB + TanStack Query, Bun |
+| `pwa/` | Progressive Web Application, offline-first | SolidJS + TanStack Router (Solid) + Vite + VitePWA + PowerSync Web SDK (OPFS-backed SQLite) + TanStack DB + TanStack Query, Bun |
 | `scripts/` | Operational scripts (incl. database reset) | TypeScript + Bun (workspace package) |
 | `workers/` | CloudFlare Workers | JavaScript |
-| `www/` | Web app | React + TanStack Router / TanStack Start + Vite, static export, Bun + shadcn/ui + TanStack Query |
+| `www/` | Website (plain static site, no PWA, no PowerSync) | SolidJS + TanStack Router (Solid) + Vite, static export, Bun + Ark UI + Tailwind CSS + TanStack Query |
 
 ## General technologies
 
-- **Frontend**: React (declarative components), Tailwind CSS + shadcn/ui, TanStack Router / TanStack Start, TanStack Query (data fetching + caching with automatic retry), TanStack DB (reactive UI collections), TanStack Form + Zod, Zustand, Motion
+- **Frontend**: SolidJS (declarative components), Tailwind CSS + Ark UI (`@ark-ui/solid`, "Tark UI"), TanStack Router (Solid), TanStack Query (data fetching + caching with automatic retry), TanStack DB (reactive UI collections over the PWA's local store), TanStack Form + Zod, Solid signals/stores for client state, Solid-native transitions + CSS for animation
+- **Website**: SolidJS + TanStack Router, static export, TanStack Query, no PowerSync and no local persistence
 - **PWA client storage**: OPFS for local binary/image files, OPFS-backed SQLite via PowerSync Web SDK
 - **Sync**: PowerSync for offline-first data synchronization (PowerSync Service: PostgreSQL-to-SQLite; PowerSync Web SDK on client)
 - **Backend**: Bun, Hono (central API, source of truth), Drizzle ORM, PostgreSQL (source of truth), PowerSync Service, pgmq for background jobs

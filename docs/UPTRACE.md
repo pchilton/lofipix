@@ -1,8 +1,8 @@
 # Uptrace
 
 Self-hosted observability for lofipix using Uptrace (OpenTelemetry backend: traces,
-metrics, logs). Run it locally via Docker; instrument the React PWA, Hono API,
-PostgreSQL, SeaweedFS, image sync pipeline, and PowerSync writes.
+metrics, logs). Run it locally via Docker; instrument the SolidJS PWA, the Website,
+Hono API, PostgreSQL, SeaweedFS, image sync pipeline, and PowerSync writes.
 
 ## Self-hosted Docker setup (skeleton)
 
@@ -61,7 +61,8 @@ docker compose -f docker-compose.uptrace.yml up -d
 
 | Layer            | Instrumentation                                                        | Result                                                   |
 | ---------------- | ---------------------------------------------------------------------- | -------------------------------------------------------- |
-| React PWA        | Fetch/XHR instrumentation, document-load instrumentation, custom spans | Browser click, upload, model load, and API request spans |
+| SolidJS PWA      | Fetch/XHR instrumentation, document-load instrumentation, custom spans | Browser click, upload, model load, and API request spans |
+| Website          | Fetch/XHR instrumentation, document-load instrumentation               | Page load, TanStack Query request spans, API request spans |
 | Hono API         | HTTP instrumentation plus custom spans                                 | Incoming request, validation, business logic, response   |
 | PostgreSQL       | Database instrumentation                                               | Query duration, query text, errors                       |
 | SeaweedFS        | HTTP/S3 client instrumentation or custom spans                         | Upload/download duration, object key, byte size          |
@@ -73,6 +74,7 @@ Notes:
 
 - PWA spans come from an OpenTelemetry browser SDK (fetch/XHR + document-load
   auto-instrumentation plus manual spans for uploads and TanStack Query mutations).
+- Website spans use the same browser SDK (fetch/XHR + document-load) without PowerSync spans.
 - Hono spans wrap each request (route, validation via Zod, handler logic, response
   status) and propagate trace context to pgmq consumers and SeaweedFS calls.
 - PostgreSQL spans record query duration, sanitized query text, and errors.

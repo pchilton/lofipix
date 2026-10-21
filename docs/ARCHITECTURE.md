@@ -1,19 +1,20 @@
 # Technology stacks
 
-Target stack for `www/`, `pwa/`, and `api/`. The central API in `api/` backed by
+Target stack for `www/`, `pwa/`, and `api/`. Both clients are SolidJS. The central API in `api/` backed by
 PostgreSQL is the source of truth; clients are offline-capable views over it.
 
 ## Website (/www)
 
 Public website: product description, organisation signup, billing, account management.
+A plain static site: no PWA, no service worker, no PowerSync, no local persistence.
 
-- UI Framework & Build Tools: React built with Vite under a unified Bun workspace monorepo structure. Components are declarative.
-- Routing & SSR: TanStack Router / TanStack Start managing type-safe client-side routes, layout-level auth guards, and static export.
-- Design System: shadcn/ui + Tailwind CSS.
-- Data Fetching: TanStack Query for data fetching and caching with automatic retry logic. Used for auth, uploads, and non-synced API state. No direct `fetch()` calls in components; use typed API modules.
-- Forms: TanStack Form + Zod.
-- Client State: Zustand for local UI state.
-- Animation: Motion JS.
+- UI Framework & Build Tools: SolidJS built with Vite under a unified Bun workspace monorepo structure. Components are declarative.
+- Routing: TanStack Router (Solid) managing type-safe client-side routes, layout-level auth guards, and static export. No TanStack Start / SSR.
+- Design System: Ark UI (`@ark-ui/solid`) headless components styled with Tailwind CSS ("Tark UI").
+- Data Fetching: TanStack Query (`@tanstack/solid-query`) for data fetching and caching with automatic retry logic. Used for auth and API state. No direct `fetch()` calls in components; use typed API modules.
+- Forms: TanStack Form (Solid) + Zod.
+- Client State: Solid signals and stores for local UI state.
+- Animation: Solid-native transitions (`TransitionGroup` / `Presence`) + CSS transitions.
 - Authentication Hooks: Better Auth client handles login states, redirection flows, and cookie sessions.
 - Validation: Every API response consumed here has a Zod schema (shared from `packages/db/models/`). TypeScript strictly; no `any` in domain models.
 - Async UX: Every async operation has explicit loading, error, success, and offline states.
@@ -24,16 +25,16 @@ Public website: product description, organisation signup, billing, account manag
 
 Local-first, offline-first application for capturing photos.
 
-- UI Framework & Build Tools: React built with Vite + VitePWA under a unified Bun workspace monorepo structure. Components are declarative.
-- Routing: TanStack Router managing type-safe SPA pathways and layout-level auth guards.
-- Design System: shadcn/ui + Tailwind CSS.
+- UI Framework & Build Tools: SolidJS built with Vite + VitePWA under a unified Bun workspace monorepo structure. Components are declarative.
+- Routing: TanStack Router (Solid) managing type-safe SPA pathways and layout-level auth guards.
+- Design System: Ark UI (`@ark-ui/solid`) headless components styled with Tailwind CSS ("Tark UI").
 - Local Database: SQLite in the browser via the PowerSync Web SDK with OPFS-backed SQLite.
 - Sync Engine: PowerSync for offline-first data synchronization against the PowerSync Service (PostgreSQL-to-SQLite sync). Handles retries, queue depth, and accepted/rejected operations.
-- Reactivity Interface: TanStack DB for reactive UI collections over the local SQLite store and synchronization state.
+- Reactivity Interface: TanStack DB (`@tanstack/solid-db`) for reactive UI collections over the local SQLite store and synchronization state. TanStack DB is the reactive layer, not the database or sync engine.
 - Non-synced State: TanStack Query for auth, uploads, and non-synced API state, with automatic retry logic. No direct `fetch()` calls in components; use typed API modules.
-- Forms: TanStack Form + Zod.
-- Client State: Zustand for local UI state.
-- Animation: Motion JS.
+- Forms: TanStack Form (Solid) + Zod.
+- Client State: Solid signals and stores for local UI state.
+- Animation: Solid-native transitions (`TransitionGroup` / `Presence`) + CSS transitions.
 - Binary Files: OPFS for local image files. Remote originals live in SeaweedFS (S3-compatible); the API issues pre-signed URLs — clients never hold S3 credentials.
 - Soft Deletes: Tables use tombstones / soft-delete rows so deletes propagate through sync instead of disappearing.
 - Validation: Every API response and database record has a Zod schema. TypeScript strictly; no `any` in domain models.
@@ -68,15 +69,15 @@ filters client sync windows, hosts the application gateway, and issues storage c
 
 ## Frontend conventions (www/ + pwa/)
 
-These rules apply to all React clients:
+These rules apply to all SolidJS clients (`www/` and `pwa/`):
 
-- Declarative React components only.
+- Declarative SolidJS components only.
 - No direct `fetch()` calls in components; use typed API modules.
 - TanStack Query for server state (auth, uploads, non-synced API state) with automatic retry.
 - TanStack DB for reactive UI collections (PWA local + synced data).
-- TanStack Router / TanStack Start for routing.
+- TanStack Router (Solid) for routing.
 - TanStack Form + Zod for forms.
-- Zustand for ephemeral client state; Motion JS for animation; shadcn/ui + Tailwind for UI.
+- Solid signals/stores for ephemeral client state; Solid-native transitions + CSS for animation; Ark UI + Tailwind for UI.
 - Every async operation surfaces loading, error, success, and offline states.
 
 # Communication channels

@@ -1,8 +1,8 @@
 # Website (www.lofipix.app) — Storyboard
 
 Marketing + management surface. Desktop-first, always-online, thin client over
-the central Hono API. React + TanStack Router / Start (static export),
-shadcn/ui + Tailwind, TanStack Query, Better Auth client. No local persistence.
+the central Hono API. SolidJS + TanStack Router (static export), Ark UI + Tailwind
+("Tark UI"), TanStack Query, Better Auth client. No PWA, no PowerSync, no local persistence.
 
 ## User journey
 

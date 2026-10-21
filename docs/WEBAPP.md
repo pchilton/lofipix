@@ -1,6 +1,6 @@
 # Webapp PWA (pwa.lofipix.app) — Storyboard
 
-Offline-first capture loop on mobile. React + VitePWA, PowerSync Web SDK
+Offline-first capture loop on mobile. SolidJS + VitePWA, PowerSync Web SDK
 (OPFS-backed SQLite), TanStack DB for reactive collections, TanStack Query for
 auth/uploads/non-synced state, OPFS for local image files. Syncs to the central
 API / PostgreSQL via the PowerSync Service; binaries go to SeaweedFS via
@@ -76,6 +76,6 @@ Full-size local (OPFS) or remote (pre-signed URL) image.
 
 ## UX notes
 
-- Declarative React; no direct `fetch()` in components — typed API modules only.
+- Declarative SolidJS; no direct `fetch()` in components — typed API modules only.
 - Forms via TanStack Form + Zod; all API responses / records validated with shared Zod schemas; strict TypeScript, no `any` in domain models.
-- shadcn/ui + Tailwind, large touch targets, Motion for transitions, Zustand for ephemeral UI state.
+- Ark UI + Tailwind ("Tark UI"), large touch targets, Solid-native transitions + CSS, Solid signals/stores for ephemeral UI state.

@@ -11,8 +11,8 @@ is the single source of truth for domain context (about, PWA behaviour, photo
 compression), architecture diagram, directory table, and stack — read it first,
 consult it during tasks, do not duplicate it in prompts.
 
-- **Web app** — React + TanStack Router/Start, static export, Bun (`www/`)
-- **PWA** — React + VitePWA, offline-first via PowerSync + OPFS, Bun (`pwa/`)
+- **Web app** — SolidJS + TanStack Router (Solid), static export, no PWA/PowerSync, Bun (`www/`)
+- **PWA** — SolidJS + TanStack Router (Solid) + VitePWA, offline-first via PowerSync + OPFS, Bun (`pwa/`)
 - **Central API** — Hono + Bun + Drizzle ORM, source of truth (`api/`)
 - **Database** — PostgreSQL: Better Auth tables in the `auth` schema (synced by Better Auth, see `docs/AUTHENTICATION.md`); application tables in `public` (Drizzle schema + `drizzle-kit push`, `packages/db`)
 - **Storage** — SeaweedFS (S3-compatible)
