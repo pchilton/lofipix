@@ -10,13 +10,13 @@ SeaweedFS is deployed on VPS instances. There is a bucket name and nginx proxies
 - API: `oceania.lofipix.app`
 - URL: `https://oceania.lofipix.app/storage-oceania-lofipix/`
 
-## Staging
+## Development
 
-SeaweedFS is installed on cairngorm
+SeaweedFS is installed on cholet
 
-- bucket name: storage-cairngorm-lofipix
-- API: `cairngorm.lofipix.app`
-- URL: `https://cairngorm.lofipix.app/storage-cairngorm-lofipix/`
+- bucket name: storage-cholet-lofipix
+- API: `192.168.1.15`
+- URL: `http://192.168.1.15:8333/storage-cholet-lofipix/`
 
 ## Authentication
 
@@ -30,7 +30,7 @@ Standalone binary. Systemd service.
 ## Initial setup
 
 Open an admin shell: weed shell -master=localhost:9333
-Run inside the shell: s3.bucket.create -name=oceania-storage
+Run inside the shell: s3.bucket.create -name=storage-oceania-lofipix
 
 Create an authentication file
 
