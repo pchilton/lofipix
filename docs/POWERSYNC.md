@@ -31,6 +31,10 @@ api:
   # JWT public key / JWKS URL used to verify client tokens issued by the API
   jwt:
     jwks_uri: ${POWERSYNC_JWKS_URL}
+
+client_auth:
+  # Audience that client JWTs must target (must match POWERSYNC_AUDIENCE in .env)
+  audience: ['powersync-<region>']
 ```
 
 `docker-compose.yaml`:
@@ -73,6 +77,22 @@ Ensure `DATABASE_URL` user has `REPLICATION` privilege or is superuser.
 | --- | --- |
 | `DATABASE_URL` | PostgreSQL connection string (source of truth) |
 | `POWERSYNC_JWKS_URL` | JWKS URL served by the API for client token verification, e.g. `https://oceania.lofipix.app/api/auth/jwks.json` |
+| `POWERSYNC_AUDIENCE` | Audience the client JWT must target. Must match `client_auth.audience` in the PowerSync service config, e.g. `oceania-lofipix` |
+
+## JWT signing algorithm
+
+The API signs PowerSync client JWTs with **EdDSA / Ed25519** (Better Auth `jwt()` plugin default). PowerSync verifies via the JWKS at `POWERSYNC_JWKS_URL`.
+
+Required JWT claims for PowerSync:
+
+| Claim | Value |
+| --- | --- |
+| `sub` | user id |
+| `aud` | `POWERSYNC_AUDIENCE` |
+| `iat` / `exp` | `exp - iat <= 86400` (<= 24h, <= 60m recommended) |
+| `kid` | matches a key in the JWKS |
+
+Extra claims (e.g. `organization_id`) are passed through and available to sync rules via `auth.parameters()`.
 
 ## Verify
 
