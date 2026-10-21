@@ -17,6 +17,10 @@ packages/ui/                      @lofipix/ui (Bun workspace member)
 │   │   ├── icon-above.tsx        TarkUI "Icon Above" (registry item 33/8)
 │   │   └── icon-above.stories.tsx
 │   ├── index.ts                  barrel: export { TabsIconAbove }
+│   ├── icons/
+│   │   ├── vite.ts               iconsPlugin() for apps and Storybook (see docs/ICONS.md)
+│   │   ├── types.d.ts            ~icons/* module types
+│   │   └── icons.stories.tsx
 │   └── styles.css                Tailwind v4 entry: @import "tailwindcss"; @source "./";
 ├── package.json
 ├── tsconfig.json
@@ -25,7 +29,7 @@ packages/ui/                      @lofipix/ui (Bun workspace member)
 
 `package.json`:
 
-- `exports`: `"."` → `src/index.ts`, `"./styles"` → `src/styles.css`
+- `exports`: `"."` → `src/index.ts`, `"./styles"` → `src/styles.css`, `"./icons/vite"` → `src/icons/vite.ts`, `"./icons/types"` → `src/icons/types.d.ts`
 - `dependencies`: `@ark-ui/solid`, `lucide-solid`
 - `peerDependencies`: `solid-js` (`^1.9.15`), `tailwindcss` (`^4.3.3`); consumers provide them
 - Scripts: `storybook`, `build-storybook`, `test`, `typecheck`
@@ -109,7 +113,8 @@ bun run test                       # vitest run
 
 ## Consuming from www / pwa
 
-Not wired yet. `www/` and `pwa/` do not import `packages/ui`. When they do:
+Components are not wired into `www/` or `pwa/` yet. Icons are: see `docs/ICONS.md`.
+When components are wired in:
 
 1. Add `"@lofipix/ui": "workspace:*"` to the app's dependencies, the same way
    `@lofipix/db` is consumed.

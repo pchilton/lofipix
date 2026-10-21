@@ -1,9 +1,11 @@
 import { defineConfig } from "vite";
 import solid from "vite-plugin-solid";
 import { VitePWA } from "vite-plugin-pwa";
+import { iconsPlugin } from "@lofipix/ui/icons/vite";
 
 export default defineConfig({
   plugins: [
+    iconsPlugin(),
     solid(),
     VitePWA({
       registerType: "autoUpdate",

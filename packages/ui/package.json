@@ -6,7 +6,9 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./styles": "./src/styles.css"
+    "./styles": "./src/styles.css",
+    "./icons/vite": "./src/icons/vite.ts",
+    "./icons/types": "./src/icons/types.d.ts"
   },
   "scripts": {
     "storybook": "storybook dev -p 6006",
@@ -20,7 +22,10 @@
   },
   "dependencies": {
     "@ark-ui/solid": "^5.39.3",
-    "lucide-solid": "^1.60.0"
+    "@iconify-json/lucide": "^1.2.147",
+    "@iconify-json/mdi": "^1.2.3",
+    "lucide-solid": "^1.60.0",
+    "unplugin-icons": "^24.0.0"
   },
   "devDependencies": {
     "@storybook/addon-docs": "^10.6.3",
