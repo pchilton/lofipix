@@ -15,8 +15,7 @@ Interview me about the requirements in this file. Check for any conflicts in app
 ## Decisions (from interview)
 
 - (none yet — populated during the interview)
-
-<!-- If the interview raises no questions, replace the list above with: No interview decisions required -->
+- If the interview raises no questions, replace the list above with: No interview decisions required
 
 ## Scope
 
@@ -37,7 +36,3 @@ Interview me about the requirements in this file. Check for any conflicts in app
 - [ ] <checkable criterion — ideally a command that passes>
 - [ ] <checkable criterion>
 - [ ] README/AGENTS.md updated if structure or conventions changed
-</content>
-</invoke>
-<invoke name="edit">
-<parameter name="filePath">/home/paul/Workspace/lofipix/prompts/README.md

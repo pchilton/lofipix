@@ -1,7 +1,7 @@
 # Technology stacks
 
 Target stack for `www/`, `pwa/`, and `api/`. Both clients are SolidJS. The central API in `api/` backed by
-PostgreSQL is the source of truth; clients are offline-capable views over it.
+PostgreSQL is the source of truth; the PWA client is local-first, offline-capable.
 
 ## Website (/www)
 
