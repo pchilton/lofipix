@@ -43,12 +43,30 @@ REGION=cholet bun scripts/reset-database.ts
 It verifies afterwards: all auth tables present in `auth`, `albums` present
 in `public`, no auth tables in `public`.
 
-## Type proxies (`packages/db/external/`)
+## Proxies (`packages/db/external/`)
 
-Type-only re-exports (`User`, `Organization`, `Member`, `Invitation`) from
-`better-auth` packages so the app can reference auth shapes without owning
-the tables. They contain no `pgTable` definitions — otherwise
-`drizzle-kit push` would create auth tables in `public`.
+Two kinds of proxies let the app reference auth shapes without owning the
+tables:
+
+1. **Type proxies** (`external/auth.ts`) — type-only re-exports (`User`,
+   `Organization`, `Member`, `Invitation`) from `better-auth` packages.
+2. **Foreign-key targets** (`external/auth-tables.ts`) — minimal
+   `pgSchema('auth').table(...)` definitions used only as the target of a
+   foreign key, e.g. `authOrganization` for `auth.organization`.
+
+Neither is re-exported from `packages/db/schema.ts`, so `drizzle-kit push`
+never manages them: the `auth` schema is owned by Better Auth and is only read
+as a foreign-key target. A `public` table therefore points at an auth table
+without duplicating its definition:
+
+```ts
+organizationId: text('organization_id')
+  .notNull()
+  .references(() => authOrganization.id, { onDelete: 'cascade' }),
+```
+
+`drizzle-kit push` emits `REFERENCES "auth"."organization"("id")`; the auth
+table must exist first, which the two-step sync guarantees.
 
 When plugins change: update the plugin list in `packages/db/auth.ts`, extend
 the proxies in `packages/db/external/`, and re-run
