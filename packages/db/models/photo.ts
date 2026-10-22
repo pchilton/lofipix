@@ -30,7 +30,7 @@ export const photos = pgTable(
     imageQuality: integer('image_quality').notNull(),
     imageSize: integer('image_size').notNull(),
     capturedAt: timestamp('captured_at', { withTimezone: true }).notNull(),
-    checksum: text('checksum'),
+    imageChecksum: text('image_checksum'),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -54,7 +54,7 @@ const photoRefinements = {
   imageHeight: (schema: z.ZodInt) => schema.positive(),
   imageQuality: (schema: z.ZodInt) => schema.min(1).max(100),
   imageSize: (schema: z.ZodInt) => schema.nonnegative(),
-  checksum: (schema: z.ZodString) => schema.regex(/^[0-9a-f]{64}$/),
+  imageChecksum: (schema: z.ZodString) => schema.regex(/^[0-9a-f]{64}$/),
 };
 
 export const photoSelectSchema = createSelectSchema(photos, photoRefinements);

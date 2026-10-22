@@ -43,6 +43,7 @@ Standard email/password login.
 Management and review focus. List of photo albums with thumbnails and sync state.
 
 - **Album list**: recent albums, reverse created order, thumbnail preview + date.
+- **Notes preview**: first paragraph of the notes under the album name, when the album has notes.
 - **Search**: optional filter by name (e.g. plate number) or date.
 - **Sync status**: per-album indicator (local-only / queued / synced); no offline queue here — reflects server truth via TanStack Query.
 - **Navigation**: settings, sync options, account info.
@@ -53,8 +54,10 @@ Management and review focus. List of photo albums with thumbnails and sync state
 Read-only review of one album.
 
 - Cover + metadata: name, notes (paragraphs), created/updated dates.
+- Notes are optional free text: paragraphs separated by a single blank line; line endings normalised to `\n`; an empty value stored as null (see `docs/PHOTOS.md`).
 - Photo grid: thumbnails served via pre-signed SeaweedFS URLs.
 - Actions: rename/edit notes (typed API mutation), delete (confirm → tombstone).
+- Editing the notes replaces the whole value; the shared album schema normalises it before it is stored.
 
 ### 6. Account administration (`/account`)
 

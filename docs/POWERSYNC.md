@@ -65,7 +65,7 @@ config:
 streams:
   global_albums:
     queries:
-      - SELECT id, name FROM albums
+      - SELECT id, name, notes FROM albums
 ```
 
 Replace the `streams` queries with the tables and filters the PWA needs.

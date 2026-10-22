@@ -1,14 +1,49 @@
 # Photos
 
-The `photos` table holds one row per captured image. The image bytes never
-enter the database — the row describes the *metadata* of an image, and the
-bytes live in a backing store (see [Backing stores](#backing-stores)).
+An **album** is a container for a series of photos; the `photos` table holds
+one row per captured image. The image bytes never enter the database — the row
+describes the *metadata* of an image, and the bytes live in a backing store
+(see [Backing stores](#backing-stores)).
 
-Model: `packages/db/models/photo.ts` (Drizzle table `photos`, plus the shared
-Zod schemas `photoSelectSchema` / `photoInsertSchema` and the types `Photo` /
-`NewPhoto`).
+Models: `packages/db/models/album.ts` (Drizzle table `albums`, plus the shared
+Zod schemas `albumSelectSchema` / `albumInsertSchema` and the types `Album` /
+`NewAlbum`) and `packages/db/models/photo.ts` (Drizzle table `photos`, plus the
+shared Zod schemas `photoSelectSchema` / `photoInsertSchema` and the types
+`Photo` / `NewPhoto`).
 
-## Columns
+## Albums
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | UUIDv7, primary key. Generated with `uuidv7()` from the `uuid` package so the PWA (a browser app) can mint ids offline. |
+| `organization_id` | `text` | Foreign key to `auth.organization(id)`, `ON DELETE CASCADE`. An album always belongs to exactly one organisation. |
+| `name` | `text` | Human-readable album name. |
+| `notes` | `text` | Free-form notes, nullable. Paragraphs are delimited by a single blank line (two `\n`). See [Album notes](#album-notes). |
+| `deleted_at` | `timestamptz` | Tombstone. Null for live rows, set when the album is deleted. |
+| `created_at` | `timestamptz` | Row creation time, `now()` by default. |
+| `updated_at` | `timestamptz` | Row update time, `now()` by default. |
+
+### Album notes
+
+`notes` holds a set of paragraphs. The format is:
+
+- paragraphs are separated by a **single blank line** — two `\n` characters;
+  a run of three or more newlines is collapsed to two;
+- line endings are normalised to `\n` (`\r\n` and lone `\r` become `\n`);
+- trailing whitespace is stripped from every line, and the value is trimmed;
+- an empty value is stored as `NULL`, so `notes IS NULL` always means "no
+  notes".
+
+The normalisation is implemented once, as a Zod transform shared by
+`albumSelectSchema` and `albumInsertSchema`
+(`packages/db/models/album.ts`), so the same rules apply to writes and to
+reads. There is no database constraint: the column is free-form text and the
+database neither indexes nor constrains it.
+
+`notes` is written both server-side and offline by the PWA, so it is part of
+the `global_albums` PowerSync stream (see `docs/POWERSYNC.md`).
+
+## Photos
 
 | Column | Type | Notes |
 | --- | --- | --- |
@@ -20,12 +55,12 @@ Zod schemas `photoSelectSchema` / `photoInsertSchema` and the types `Photo` /
 | `image_quality` | `integer` | JPEG quality used for the stored image, `1..100`. |
 | `image_size` | `integer` | Size in bytes of the stored image. |
 | `captured_at` | `timestamptz` | When the photo was captured on the device. Required, set by the client — never defaulted to `now()` server-side, which would record sync time instead of capture time. |
-| `checksum` | `text` | Lowercase hex SHA-256 of the stored bytes. Nullable until the image has been processed. De-duplication is decided in application code; the database neither indexes nor constrains uniqueness here. |
+| `image_checksum` | `text` | Lowercase hex SHA-256 of the stored bytes. Nullable until the image has been processed. De-duplication is decided in application code; the database neither indexes nor constrains uniqueness here. |
 | `deleted_at` | `timestamptz` | Tombstone. Null for live rows, set when the photo is deleted. |
 | `created_at` | `timestamptz` | Row creation time, `now()` by default. |
 | `updated_at` | `timestamptz` | Row update time, `now()` by default. |
 
-## Constraints
+## Photo constraints
 
 - `UNIQUE (album_id, position) WHERE deleted_at IS NULL` — position is unique
   among the live photos of an album. The predicate is what makes tombstoning
@@ -52,6 +87,9 @@ every client.
 `photos` is listed in the PowerSync publication (see `docs/POWERSYNC.md`).
 The PWA creates photo rows offline, which is why the id, `position` and
 `captured_at` are supplied by the client.
+
+`albums` is published too, through the `global_albums` stream, which carries
+`id`, `name` and `notes`.
 
 ## Backing stores
 

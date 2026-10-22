@@ -36,6 +36,7 @@ Cut-down album view, reverse created order, sync progress visible.
 
 - **Create Album card** (prominent, top):
   - Name (required, e.g. license plate), Notes (optional freetext, stored as paragraphs), Start button.
+  - Notes contract (shared schema, see `docs/PHOTOS.md`): free text, paragraphs separated by a single blank line; line endings normalised to `\n`; an empty value stored as null.
   - If name already exists: replace Start with "Album already exists" note + emphasised "Review Existing" button → Finish Album for that album.
 - **Most-recent album card**: mirrors Finish Album (thumbnail strip, counts, sync badge).
 - **Album list**: older albums with thumbnails + per-photo sync state (device-only / queued / synced).
@@ -58,6 +59,7 @@ Review everything on the device before submitting.
 - Photo grid from local store; tap to review full-size.
 - Delete with confirmation (local delete; tombstone propagates on sync if already uploaded).
 - Status chips per photo: device-only → queued → synced.
+- **Notes**: free text, editable on the device, paragraphs separated by a single blank line; saved with the album row and synced with it.
 - **Add Photos** (emphasised when arriving via "Album already exists") → back to Take Photos.
 - **Submit**: enqueues local photos for upload, returns to Dashboard with this album on top.
 
@@ -70,6 +72,7 @@ Full-size local (OPFS) or remote (pre-signed URL) image.
 ## Sync & upload behaviour
 
 - Submits enqueue: OPFS bytes → SeaweedFS via pre-signed URLs, metadata via PowerSync upload / API POST.
+- Album rows (name, notes) travel through the `global_albums` PowerSync stream, so notes written offline are available on every device of the organisation.
 - Dashboard and Finish Album show queue progress; retries automatic (TanStack Query retry + PowerSync retry/queue-depth).
 - Tombstone deletes propagate so other clients converge.
 - Every async operation exposes loading / error / success / offline states.

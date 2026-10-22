@@ -36,7 +36,7 @@ const SYNC_CONFIG_YAML = `config:
 streams:
   global_albums:
     queries:
-      - SELECT id, name FROM albums
+      - SELECT id, name, notes FROM albums
 `;
 
 interface PowerSyncOptions {
