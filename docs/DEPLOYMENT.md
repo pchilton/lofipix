@@ -50,6 +50,82 @@ Locations to service via nginx reverse proxy:
 - `/api/` - Standard API queries via Hono
 - `/powersync/` - Real-time data sync via PowerSync
 
+## API deployment (oceania)
+
+`.github/workflows/deploy-api.yml` deploys the API on pushes to `main` that touch
+`api/`, `packages/`, the root `bun.lock` or `package.json`, or the workflow
+itself. It can also be run manually with `workflow_dispatch`.
+
+The job installs the workspace at the repo root, typechecks and builds `api/`,
+then copies only the built `api/dist/index.js` to
+`/var/www/oceania.lofipix.app/index.js` over SSH as `ubuntu`, using the
+`DEPLOY_PRIVATE_KEY` secret. The output is a platform-independent JavaScript
+bundle (CI runs on amd64, oceania is ARM64), so no native build is required on
+the server. The previous bundle is kept as `index.js.previous` for manual
+rollback.
+
+After uploading, the job restarts the service with
+`sudo systemctl restart lofipix-api` and polls
+`http://127.0.0.1:5634/health` up to 15 times; it fails if the API does not
+report `{"status":"ok"}`.
+
+### One-time VPS setup
+
+Prerequisites: Bun installed for `ubuntu` (the unit below uses
+`/home/ubuntu/.bun/bin/bun`), `rsync`, `curl`, and nginx proxying `/api/` to
+`127.0.0.1:5634` (see `docs/NGINX.md`).
+
+1. Create the deploy folder and give it to the deploy user:
+
+   ```sh
+   sudo mkdir -p /var/www/oceania.lofipix.app
+   sudo chown ubuntu:ubuntu /var/www/oceania.lofipix.app
+   ```
+
+2. Put the production environment in
+   `/var/www/oceania.lofipix.app/.env.oceania` (keys are listed in
+   `.env.example`). The workflow verifies the file exists but never overwrites
+   it. `REGION=oceania` makes `@lofipix/env` load this file from the service's
+   working directory.
+
+3. Install `/etc/systemd/system/lofipix-api.service`:
+
+   ```ini
+   [Unit]
+   Description=lofipix API (oceania)
+   After=network.target
+
+   [Service]
+   Type=simple
+   User=ubuntu
+   Group=ubuntu
+   WorkingDirectory=/var/www/oceania.lofipix.app
+   Environment=REGION=oceania
+   Environment=PORT=5634
+   ExecStart=/home/ubuntu/.bun/bin/bun /var/www/oceania.lofipix.app/index.js
+   Restart=always
+   RestartSec=3
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+
+   ```sh
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now lofipix-api
+   ```
+
+4. Let the deploy user restart only this unit without a password. Create
+   `/etc/sudoers.d/lofipix-deploy` with `sudo visudo -f /etc/sudoers.d/lofipix-deploy`:
+
+   ```sudoers
+   ubuntu ALL=(root) NOPASSWD: /usr/bin/systemctl restart lofipix-api
+   ```
+
+Before the first deploy, `/var/www/oceania.lofipix.app/index.js` does not
+exist; the job's health check fails until the unit and `.env.oceania` are in
+place.
+
 ## Development
 
 Hosted on cholet
