@@ -1,7 +1,6 @@
 import { createRootRoute, createRoute, createRouter, Link, Outlet } from "@tanstack/solid-router";
 
 import Welcome from "./routes/Welcome";
-import About from "./routes/About";
 import Login from "./routes/Login";
 import Dashboard from "./routes/Dashboard";
 
@@ -10,7 +9,6 @@ const rootRoute = createRootRoute({
     <>
       <nav>
         <Link to="/">Home</Link>
-        <Link to="/about">About</Link>
         <Link to="/login">Sign in</Link>
         <Link to="/dashboard">Dashboard</Link>
       </nav>
@@ -25,12 +23,6 @@ const indexRoute = createRoute({
   component: Welcome,
 });
 
-const aboutRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/about",
-  component: About,
-});
-
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
@@ -43,7 +35,7 @@ const dashboardRoute = createRoute({
   component: Dashboard,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, aboutRoute, loginRoute, dashboardRoute]);
+const routeTree = rootRoute.addChildren([indexRoute, loginRoute, dashboardRoute]);
 
 export const router = createRouter({ routeTree });
 
