@@ -4,29 +4,27 @@ export interface AppConfig {
   API_URL: string;
 }
 
+const DEV_HOST = '192.168.1.15';
+
 function detectConfig(): AppConfig {
   if (typeof window === "undefined") {
-    // SSR/build time fallback
+    // Build-time fallback (config is resolved at runtime in the browser).
     return {
-      WEBSITE_URL: "http://localhost:5173/",
-      WEBAPP_URL: "http://localhost:5174/",
-      API_URL: "http://localhost:5634/",
+      WEBSITE_URL: `http://${DEV_HOST}:5173/`,
+      WEBAPP_URL: `http://${DEV_HOST}:5174/`,
+      API_URL: `http://${DEV_HOST}:5634/`,
     };
   }
 
-  const { hostname, port } = window.location;
-
-  // Development: port 5174. Use the hostname the app was loaded from so the
-  // website, PWA and API share a site and session cookies are sent.
-  if (port === "5174") {
+  const { hostname } = window.location;
+  if (hostname === DEV_HOST) {
     return {
-      WEBSITE_URL: `http://${hostname}:5173/`,
-      WEBAPP_URL: `http://${hostname}:5174/`,
-      API_URL: `http://${hostname}:5634/`,
+      WEBSITE_URL: `http://${DEV_HOST}:5173/`,
+      WEBAPP_URL: `http://${DEV_HOST}:5174/`,
+      API_URL: `http://${DEV_HOST}:5634/`,
     };
   }
 
-  // Production
   return {
     WEBSITE_URL: "https://www.lofipix.app/",
     WEBAPP_URL: "https://pwa.lofipix.app/",

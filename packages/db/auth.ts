@@ -17,17 +17,26 @@ function resolvePool(): Pool {
 
 const pool = resolvePool();
 
+const baseURL = process.env.API_URL ?? 'http://192.168.1.15:5634';
+const isProduction = baseURL.startsWith('https://');
+
 export const auth = betterAuth({
-  baseURL: process.env.API_URL ?? 'http://localhost:5634',
+  baseURL,
   secret: process.env.BETTER_AUTH_SECRET,
   trustedOrigins: [
-    'http://localhost:5173',
     'http://192.168.1.15:5173',
-    'http://localhost:5174',
     'http://192.168.1.15:5174',
     'https://www.lofipix.app',
     'https://pwa.lofipix.app',
   ],
+  advanced: isProduction
+    ? {
+        crossSubDomainCookies: {
+          enabled: true,
+          domain: '.lofipix.app',
+        },
+      }
+    : undefined,
   emailAndPassword: {
     enabled: true,
   },

@@ -78,7 +78,7 @@ Do not re-copy an item that has local patches. Re-apply the patch instead.
 
 ```bash
 cd packages/ui
-bun run storybook          # dev server, http://localhost:6006
+bun run storybook          # dev server, http://192.168.1.15:6006
 bun run build-storybook    # static build into storybook-static/ (gitignored)
 ```
 

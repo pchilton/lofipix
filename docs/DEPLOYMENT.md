@@ -29,7 +29,7 @@ back to `index.html`:
 
 ## Authentication
 
-Authentication uses "Better Auth". Authentication is handled by the API, setting Bearer tokens in HTTP-only cookies. The cookies are scoped to ".lofipix.app".
+Authentication uses "Better Auth". Authentication is handled by the API, setting Bearer tokens in HTTP-only cookies. In production the cookies are scoped to `.lofipix.app` (cross-subdomain); in development they are host-only on `192.168.1.15`. Development is accessed via the LAN IP, never localhost.
 
 ## Domain Names
 

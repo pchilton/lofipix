@@ -29,10 +29,11 @@ cannot exist here.
 The site is statically exported and selects its endpoints at runtime from
 `www/src/lib/config.ts` by inspecting `window.location`:
 
-- **Development** — port `5173`: URLs use the hostname the site was loaded from
-  (`http://<host>:5173/`, `http://<host>:5174/`, `http://<host>:5634/`), e.g.
-  `192.168.1.15` from the LAN or `localhost` locally. The website, PWA and API
-  must share a hostname so session cookies are sent.
+- **Development** — port `5173` on the LAN IP only:
+  `http://192.168.1.15:5173/`, `http://192.168.1.15:5174/`,
+  `http://192.168.1.15:5634/`. `localhost` is not supported; loading the dev
+  server from another hostname throws and asks for the LAN URL. The website,
+  PWA and API share the `192.168.1.15` host so session cookies are sent.
 - **Production** — HTTPS on `www.lofipix.app`: `WEBSITE_URL`
   `https://www.lofipix.app/`, `WEBAPP_URL` `https://pwa.lofipix.app/`, `API_URL`
   `https://oceania.lofipix.app/`.

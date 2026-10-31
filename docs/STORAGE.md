@@ -29,7 +29,7 @@ Standalone binary. Systemd service.
 
 ## Initial setup
 
-Open an admin shell: weed shell -master=localhost:9333
+Open an admin shell: weed shell -master=192.168.1.15:9333
 Run inside the shell: s3.bucket.create -name=storage-oceania-lofipix
 
 Create an authentication file

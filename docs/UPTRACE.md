@@ -53,8 +53,8 @@ volumes:
 
 ```sh
 docker compose -f docker-compose.uptrace.yml up -d
-# Open http://localhost:8888, create/use project token, then point
-# OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:14318 at it.
+# Open http://192.168.1.15:8888, create/use project token, then point
+# OTEL_EXPORTER_OTLP_ENDPOINT=http://192.168.1.15:14318 at it.
 ```
 
 ## Instrumentation map (initial entry)

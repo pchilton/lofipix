@@ -20,9 +20,14 @@ API and `scripts/reset-database.ts` so both use the same plugin list.
 `api/src/index.ts` mounts `auth.handler` at `/api/auth/*` for GET and POST and
 applies CORS with credential support. Allowed origins are listed both in the
 Hono CORS allowlist and in Better Auth's `trustedOrigins`
-(`packages/db/auth.ts`): localhost/`192.168.1.15` on ports 5173 and 5174 for
-development, plus `https://www.lofipix.app` and `https://pwa.lofipix.app`.
-Add any new client origin in both places.
+(`packages/db/auth.ts`): `192.168.1.15` on ports 5173 and 5174 for development
+(localhost is intentionally unsupported), plus `https://www.lofipix.app` and
+`https://pwa.lofipix.app`. Add any new client origin in both places.
+
+Session cookies are host-only in development, scoped to `192.168.1.15`, so the
+website, PWA and API on different ports share the session. In production
+(`advanced.crossSubDomainCookies`) they are issued for `.lofipix.app`, making
+the session available across all `*.lofipix.app` subdomains.
 
 ## Plugins and tables
 
