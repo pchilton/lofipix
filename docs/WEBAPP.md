@@ -82,3 +82,20 @@ Full-size local (OPFS) or remote (pre-signed URL) image.
 - Declarative SolidJS; no direct `fetch()` in components — typed API modules only.
 - Forms via TanStack Form + Zod; all API responses / records validated with shared Zod schemas; strict TypeScript, no `any` in domain models.
 - Ark UI + Tailwind ("Tark UI"), large touch targets, Solid-native transitions + CSS, Solid signals/stores for ephemeral UI state.
+
+
+## Environment configuration
+
+The PWA supports two environments:
+
+- **Development**: when running on port `5174` (local dev server). Configuration is loaded from `pwa/src/lib/config.ts` with:
+  - `WEBSITE_URL`: `http://192.168.1.15:5173/`
+  - `WEBAPP_URL`: `http://192.168.1.15:5174/`
+  - `API_URL`: `http://192.168.1.15:5634/`
+
+- **Production**: when connected via HTTPS on port `443` with hostname `pwa.lofipix.app`. Configuration is loaded from `pwa/src/lib/config.ts` with:
+  - `WEBSITE_URL`: `https://www.lofipix.app/`
+  - `WEBAPP_URL`: `https://pwa.lofipix.app/`
+  - `API_URL`: `https://oceania.lofipix.app/`
+
+The configuration is determined at runtime by inspecting `window.location` in `pwa/src/lib/config.ts`.

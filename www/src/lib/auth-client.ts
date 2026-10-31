@@ -1,5 +1,6 @@
 import { createAuthClient } from 'better-auth/solid';
+import { config } from './config';
 
 export const authClient = createAuthClient({
-  baseURL: 'http://localhost:5634',
+  baseURL: config.API_URL,
 });
