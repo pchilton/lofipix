@@ -64,6 +64,7 @@ app.get("/api/sync/token", async (c) => {
     return c.json({ error: "PowerSync JWT signing is not configured." }, 500);
   }
   const result = await jwtPlugin.endpoints.signJWT({
+    context,
     body: {
       payload: {
         sub: session.user.id,
