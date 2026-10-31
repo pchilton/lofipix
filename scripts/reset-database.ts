@@ -1,5 +1,6 @@
 import '@lofipix/env';
 
+import { join } from 'node:path';
 import postgres from 'postgres';
 import { auth } from '@lofipix/db/auth';
 import { getMigrations } from 'better-auth/db/migration';
@@ -45,12 +46,16 @@ async function syncAuthSchema(): Promise<void> {
 }
 
 async function pushPublicSchema(): Promise<void> {
-  const proc = Bun.spawn(['bunx', 'drizzle-kit', 'push', '--force'], {
-    cwd: new URL('../packages/db', import.meta.url).pathname,
-    env: { ...process.env },
-    stdout: 'inherit',
-    stderr: 'inherit',
-  });
+  const dbDir = new URL('../packages/db', import.meta.url).pathname;
+  const proc = Bun.spawn(
+    ['bun', join(dbDir, 'node_modules/drizzle-kit/bin.cjs'), 'push', '--force'],
+    {
+      cwd: dbDir,
+      env: { ...process.env },
+      stdout: 'inherit',
+      stderr: 'inherit',
+    },
+  );
   const code = await proc.exited;
   if (code !== 0) {
     throw new Error(`drizzle-kit push failed with exit code ${code}`);

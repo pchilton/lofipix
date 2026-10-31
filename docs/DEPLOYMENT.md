@@ -136,9 +136,11 @@ manually with `workflow_dispatch`.
 CI bundles every top-level `scripts/*.ts` with `bun build --target bun` and
 ships the bundles to `/var/www/oceania.lofipix.app/scripts` under their
 original `.ts` names, so the VPS does not need `node_modules` for them. It also
-generates a self-contained Drizzle schema (`schema.js`) and a matching
-`drizzle.config.js` in `/var/www/oceania.lofipix.app/packages/db`, which
-`reset-database.ts` points at when it runs `bunx drizzle-kit push`.
+generates a self-contained Drizzle schema (`schema.js`), a matching
+`drizzle.config.js`, and an ARM64 `node_modules` containing `drizzle-kit`,
+`drizzle-orm` and `pg` in `/var/www/oceania.lofipix.app/packages/db`.
+`reset-database.ts` runs that local `drizzle-kit` binary, so the VPS does not
+need package downloads to push the schema.
 
 Run scripts from the deployed folder, selecting the region so `@lofipix/env`
 finds `/var/www/oceania.lofipix.app/.env.oceania` in the parent directory:
@@ -150,8 +152,7 @@ REGION=oceania bun run powersync.ts
 ```
 
 Adding a new `scripts/*.ts` file is enough; the workflow bundles and deploys it
-on the next push. `reset-database.ts` needs package-download access on the VPS
-for `bunx drizzle-kit push`; Bun caches it after the first run.
+on the next push.
 
 ## Development
 

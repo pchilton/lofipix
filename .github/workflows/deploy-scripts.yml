@@ -64,6 +64,34 @@ jobs:
           };
           EOF
 
+          cat > "$STAGE/db-tools-package.ts" <<'EOF'
+          const version = async (name: string): Promise<string> => {
+            const pkg = await Bun.file(`packages/db/node_modules/${name}/package.json`).json();
+            return pkg.version;
+          };
+
+          const pkg = {
+            name: 'lofipix-db-tools',
+            private: true,
+            type: 'module',
+            dependencies: {
+              'drizzle-kit': await version('drizzle-kit'),
+              'drizzle-orm': await version('drizzle-orm'),
+              pg: await version('pg'),
+            },
+          };
+
+          await Bun.write(
+            `${process.env.STAGE}/packages/db/package.json`,
+            `${JSON.stringify(pkg, null, 2)}\n`,
+          );
+          EOF
+          STAGE="$STAGE" bun "$STAGE/db-tools-package.ts"
+          rm "$STAGE/db-tools-package.ts"
+
+          cd "$STAGE/packages/db"
+          bun install --production --cpu=arm64 --os=linux
+
       - name: Configure SSH
         env:
           DEPLOY_PRIVATE_KEY: ${{ secrets.DEPLOY_PRIVATE_KEY }}
@@ -97,4 +125,6 @@ jobs:
              && test -f '$DEPLOY_PATH/scripts/reset-database.ts' \
              && test -f '$DEPLOY_PATH/scripts/powersync.ts' \
              && test -f '$DEPLOY_PATH/packages/db/drizzle.config.js' \
+             && test -f '$DEPLOY_PATH/packages/db/node_modules/drizzle-kit/bin.cjs' \
+             && test -x '$DEPLOY_PATH/packages/db/node_modules/@esbuild/linux-arm64/bin/esbuild' \
              && echo 'scripts deployed to $DEPLOY_PATH/scripts'"
