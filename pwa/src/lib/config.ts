@@ -14,13 +14,15 @@ function detectConfig(): AppConfig {
     };
   }
 
-  const { port } = window.location;
-  // Development: port 5173
-  if (port === "5173") {
+  const { hostname, port } = window.location;
+
+  // Development: port 5174. Use the hostname the app was loaded from so the
+  // website, PWA and API share a site and session cookies are sent.
+  if (port === "5174") {
     return {
-      WEBSITE_URL: "http://192.168.1.15:5173/",
-      WEBAPP_URL: "http://192.168.1.15:5174/",
-      API_URL: "http://192.168.1.15:5634/",
+      WEBSITE_URL: `http://${hostname}:5173/`,
+      WEBAPP_URL: `http://${hostname}:5174/`,
+      API_URL: `http://${hostname}:5634/`,
     };
   }
 

@@ -6,80 +6,176 @@ the central Hono API. SolidJS + TanStack Router (static export), Ark UI + Tailwi
 
 ## User journey
 
-`Welcome → Signup/Login → Dashboard → Album detail → Account → Billing`
+`Home → Auth → Dashboard → Album detail → Account → Billing`
 
-A visitor learns what lofipix is, creates an organisation, then manages albums,
-users, devices, and billing from the desktop. Photo capture happens in the PWA;
-the website is for review and administration.
+A visitor learns what lofipix is from the Home page and signs in or registers.
+Registration creates a user and a single organisation in one flow. Photo capture
+happens in the PWA; the website is for review and administration.
 
-## Pages
+## Data source
 
-### 1. Welcome (`/`)
+The website treats the central API as the source of truth. It holds no local
+queue and no optimistic offline state: every view reflects what the API returns
+via TanStack Query. The PWA behaves differently (PowerSync, device-first,
+optimistic updates) — see `docs/WEBAPP.md`; do not carry PWA semantics into the
+website.
 
-Marketing page. What lofipix is, who it's for, how the PWA + cloud sync works.
+Sync/upload status shown on the website is derived from API state, e.g.
+`queued`, `processing`, `synced` — never "device-only" or "local-only", which
+cannot exist here.
 
-- Hero: value proposition + CTA (Sign up / Open PWA).
+## Environments
+
+The site is statically exported and selects its endpoints at runtime from
+`www/src/lib/config.ts` by inspecting `window.location`:
+
+- **Development** — port `5173`: URLs use the hostname the site was loaded from
+  (`http://<host>:5173/`, `http://<host>:5174/`, `http://<host>:5634/`), e.g.
+  `192.168.1.15` from the LAN or `localhost` locally. The website, PWA and API
+  must share a hostname so session cookies are sent.
+- **Production** — HTTPS on `www.lofipix.app`: `WEBSITE_URL`
+  `https://www.lofipix.app/`, `WEBAPP_URL` `https://pwa.lofipix.app/`, `API_URL`
+  `https://oceania.lofipix.app/`.
+
+"No SSR": dynamic routes (`/albums/:id`, `/account`, …) rely on the host's
+SPA fallback to `index.html` for client-side routing.
+
+## Logged out users
+
+- See the marketing **Home** (`/`) and **Auth** (`/auth`) pages.
+- Cannot see the Dashboard or any management page; those redirect to `/auth`.
+- The **About** page has been removed.
+
+### Home (`/`)
+
+Marketing page. What lofipix is, who it's for: a mobile-first, offline-first PWA
+for capturing panel damage photos, with cloud albums and organisation sharing.
+
+- Hero: value proposition + CTA (Sign in / Register).
+- **Open PWA**: links directly to `config.WEBAPP_URL` in a new tab (`target="_blank"`,
+  `rel="noopener noreferrer"`). The PWA has its own login screen, so the website
+  does not gate or proxy this link.
 - Feature strip: offline-first PWA capture, cloud albums, organisation sharing.
-- Pricing teaser → links to Billing/Signup.
-- Footer: docs, status, contact.
+- No pricing/billing marketing until Billing is implemented.
 
-### 2. Signup (`/signup`)
+### Auth (`/auth`)
 
-Create user + organisation in one flow.
+Two-column page. Left column is the standard Better Auth email/password sign-in;
+right column is the standard Better Auth registration plus organisation creation.
+Columns stack on narrow screens with sign-in first.
 
-- Fields: organisation name, name, email, password.
-- States: loading, validation error, success → Dashboard.
-- Uses Better Auth client; errors surfaced inline.
-
-### 3. Login (`/login`)
-
-Standard email/password login.
+**Left — Sign in**
 
 - Fields: email, password (visibility toggle), submit.
-- Error handling for invalid credentials; redirect back to originally requested page.
+- `authClient.signIn.email`; invalid-credential errors surfaced inline; loading
+  state disables submit.
+- On success redirect to the `redirect` search target when present
+  (`/auth?redirect=/albums/123`), otherwise `/dashboard`.
+- Signing in with an existing session redirects to `/dashboard`.
 
-### 4. Dashboard (`/dashboard`)
+**Right — Create account**
+
+- Fields: organisation name, name, email, password, confirm password (visibility
+  toggle on both).
+- Client-side validation: required fields and matching passwords; password
+  minimum 8 characters (Better Auth default). Email-in-use errors surfaced
+  inline.
+- Flow: `authClient.signUp.email` creates and signs in the user, then
+  `authClient.organization.create` creates the organisation. Better Auth makes
+  the creator the `owner` and makes the new organisation the session's active
+  organisation automatically.
+- **Partial failure**: if organisation creation fails after the account is
+  created, keep the user signed in and show an inline error with a **Retry create
+  organisation** action (reusing the entered organisation name). The user is
+  never pushed back to a state where their account exists but no recovery path is
+  offered. After a reload, the Dashboard detects a signed-in user with no
+  organisation and offers the same create-organisation form.
+- On success redirect to `/dashboard`.
+
+**Organisation policy**
+
+- One organisation per user: `organizationLimit: 1` in the Better Auth
+  organisation plugin (`packages/db/auth.ts`). There is no org switcher.
+- All website queries are scoped to the session's active organisation.
+
+**Email verification**
+
+- `emailAndPassword` is enabled and sign-up is immediately active. `magicLink` /
+  `emailOTP` are configured but their send callbacks are no-ops, so no
+  verification email is sent and none is promised in the UI.
+
+## Logged in users
+
+- See Dashboard and management pages. Navigation shows account, settings and
+  sign-out instead of Sign in / Register.
+- Signing out clears the session and returns to `/`.
+- Visiting `/auth` while signed in redirects to `/dashboard`. `/` remains the
+  marketing page (reachable while signed in) with CTAs pointing at the
+  authenticated app.
+
+### Dashboard (`/dashboard`)
 
 Management and review focus. List of photo albums with thumbnails and sync state.
 
 - **Album list**: recent albums, reverse created order, thumbnail preview + date.
-- **Notes preview**: first paragraph of the notes under the album name, when the album has notes.
+- **Notes preview**: first paragraph of the notes under the album name, when the
+  album has notes; truncated with an ellipsis. Uses the shared album schema's
+  normalisation (`docs/PHOTOS.md`).
 - **Search**: optional filter by name (e.g. plate number) or date.
-- **Sync status**: per-album indicator (local-only / queued / synced); no offline queue here — reflects server truth via TanStack Query.
-- **Navigation**: settings, sync options, account info.
-- Click album → Album detail.
+- **Status**: per-album API-derived status (queued / processing / synced).
+- **Navigation**: settings, account info.
+- **Click album**: Album detail.
 
-### 5. Album detail (`/albums/:id`)
+### Album detail (`/albums/:id`)
 
 Read-only review of one album.
 
 - Cover + metadata: name, notes (paragraphs), created/updated dates.
-- Notes are optional free text: paragraphs separated by a single blank line; line endings normalised to `\n`; an empty value stored as null (see `docs/PHOTOS.md`).
+- Notes are optional free text: paragraphs separated by a single blank line; line
+  endings normalised to `\n`; an empty value stored as null (see `docs/PHOTOS.md`).
 - Photo grid: thumbnails served via pre-signed SeaweedFS URLs.
 - Actions: rename/edit notes (typed API mutation), delete (confirm → tombstone).
-- Editing the notes replaces the whole value; the shared album schema normalises it before it is stored.
+- Editing the notes replaces the whole value; the shared album schema normalises
+  it before it is stored.
 
-### 6. Account administration (`/account`)
+### Account administration (`/account`)
 
-Manage users and devices within the organisation.
+Manage users and devices within the organisation (`owner` / `admin`).
 
-- **Members**: list by role (`owner`, `admin`, `member`, `finances`), invite/remove, change role.
+- **Members**: list by role (`owner`, `admin`, `member`, `finances`),
+  invite/remove, change role.
 - **Devices**: list registered clients / API tokens, revoke.
-- All checks scoped to the organisation via the Better Auth organisation plugin (see `docs/AUTHENTICATION.md`).
+- All checks scoped to the organisation via the Better Auth organisation plugin
+  (see `docs/AUTHENTICATION.md`).
 
-### 7. Billing (`/billing`)
+### Billing (`/billing`)
 
 Organisation billing (role-gated to `owner` / `finances`).
 
 - Current plan, usage summary, invoices.
-- "Connect Xero" entry point lives here or in Account; OAuth callback writes tenant mapping to account JSONB.
+- "Connect Xero" entry point lives here or in Account; OAuth callback writes
+  tenant mapping to account JSONB.
 
-### 8. Settings (`/settings`)
+### Settings (`/settings`)
 
-User-level: profile, password change, sign out. Organisation-level (admins): name, defaults.
+User-level: profile, password change, sign out. Organisation-level (admins):
+name, defaults.
+
+### Role matrix
+
+| Route / action | owner | admin | member | finances |
+| --- | --- | --- | --- | --- |
+| Dashboard, albums, settings (user) | yes | yes | yes | yes |
+| Album edit/delete | yes | yes | yes | no |
+| Account administration | yes | yes | no | no |
+| Billing | yes | no | no | yes |
 
 ## UX notes
 
-- Every async view has loading / error / success states; offline shows a "reconnect" banner (no local queue — website requires connectivity).
+- Every async view has loading / error / success states; offline shows a
+  "reconnect" banner (no local queue — website requires connectivity).
 - No direct `fetch()` in components; typed API modules + TanStack Query with retry.
 - Every API response validated with shared Zod schemas.
+- Route guards run in TanStack Router `beforeLoad`; unauthenticated users are
+  redirected to `/auth` with a `redirect` search parameter, and 404s render a
+  not-found page.

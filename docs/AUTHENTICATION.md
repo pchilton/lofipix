@@ -15,6 +15,15 @@ API and `scripts/reset-database.ts` so both use the same plugin list.
   deferred to the new-authentication task; this setup only ensures the tables
   exist.
 
+## API mounting and CORS
+
+`api/src/index.ts` mounts `auth.handler` at `/api/auth/*` for GET and POST and
+applies CORS with credential support. Allowed origins are listed both in the
+Hono CORS allowlist and in Better Auth's `trustedOrigins`
+(`packages/db/auth.ts`): localhost/`192.168.1.15` on ports 5173 and 5174 for
+development, plus `https://www.lofipix.app` and `https://pwa.lofipix.app`.
+Add any new client origin in both places.
+
 ## Plugins and tables
 
 | Plugin | Tables in `auth` | Purpose |

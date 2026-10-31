@@ -88,12 +88,12 @@ Full-size local (OPFS) or remote (pre-signed URL) image.
 
 The PWA supports two environments:
 
-- **Development**: when running on port `5174` (local dev server). Configuration is loaded from `pwa/src/lib/config.ts` with:
-  - `WEBSITE_URL`: `http://192.168.1.15:5173/`
-  - `WEBAPP_URL`: `http://192.168.1.15:5174/`
-  - `API_URL`: `http://192.168.1.15:5634/`
+- **Development**: when running on port `5174` (local dev server). Configuration is loaded from `pwa/src/lib/config.ts` using the hostname the app was loaded from:
+  - `WEBSITE_URL`: `http://<host>:5173/`
+  - `WEBAPP_URL`: `http://<host>:5174/`
+  - `API_URL`: `http://<host>:5634/`
 
-- **Production**: when connected via HTTPS on port `443` with hostname `pwa.lofipix.app`. Configuration is loaded from `pwa/src/lib/config.ts` with:
+- **Production**: any other port/host (e.g. HTTPS on `pwa.lofipix.app`). Configuration is loaded from `pwa/src/lib/config.ts` with:
   - `WEBSITE_URL`: `https://www.lofipix.app/`
   - `WEBAPP_URL`: `https://pwa.lofipix.app/`
   - `API_URL`: `https://oceania.lofipix.app/`

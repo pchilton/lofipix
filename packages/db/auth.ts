@@ -20,6 +20,14 @@ const pool = resolvePool();
 export const auth = betterAuth({
   baseURL: process.env.API_URL ?? 'http://localhost:5634',
   secret: process.env.BETTER_AUTH_SECRET,
+  trustedOrigins: [
+    'http://localhost:5173',
+    'http://192.168.1.15:5173',
+    'http://localhost:5174',
+    'http://192.168.1.15:5174',
+    'https://www.lofipix.app',
+    'https://pwa.lofipix.app',
+  ],
   emailAndPassword: {
     enabled: true,
   },
@@ -29,7 +37,7 @@ export const auth = betterAuth({
     schemaName: 'auth',
   },
   plugins: [
-    organization(),
+    organization({ organizationLimit: 1 }),
     magicLink({
       sendMagicLink: async () => {},
     }),
