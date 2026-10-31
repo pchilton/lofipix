@@ -126,6 +126,33 @@ Before the first deploy, `/var/www/oceania.lofipix.app/index.js` does not
 exist; the job's health check fails until the unit and `.env.oceania` are in
 place.
 
+## Scripts deployment (oceania)
+
+`.github/workflows/deploy-scripts.yml` deploys the ad-hoc administration
+scripts on pushes to `main` that touch `scripts/`, `packages/`, the root
+`bun.lock` or `package.json`, or the workflow itself. It can also be run
+manually with `workflow_dispatch`.
+
+CI bundles every top-level `scripts/*.ts` with `bun build --target bun` and
+ships the bundles to `/var/www/oceania.lofipix.app/scripts` under their
+original `.ts` names, so the VPS does not need `node_modules` for them. It also
+generates a self-contained Drizzle schema (`schema.js`) and a matching
+`drizzle.config.js` in `/var/www/oceania.lofipix.app/packages/db`, which
+`reset-database.ts` points at when it runs `bunx drizzle-kit push`.
+
+Run scripts from the deployed folder, selecting the region so `@lofipix/env`
+finds `/var/www/oceania.lofipix.app/.env.oceania` in the parent directory:
+
+```sh
+cd /var/www/oceania.lofipix.app/scripts
+REGION=oceania bun run reset-database.ts
+REGION=oceania bun run powersync.ts
+```
+
+Adding a new `scripts/*.ts` file is enough; the workflow bundles and deploys it
+on the next push. `reset-database.ts` needs package-download access on the VPS
+for `bunx drizzle-kit push`; Bun caches it after the first run.
+
 ## Development
 
 Hosted on cholet

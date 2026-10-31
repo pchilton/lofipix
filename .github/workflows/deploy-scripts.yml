@@ -1,0 +1,100 @@
+name: Deploy Scripts
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "scripts/**"
+      - "packages/**"
+      - "bun.lock"
+      - "package.json"
+      - ".github/workflows/deploy-scripts.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-scripts
+  cancel-in-progress: false
+
+env:
+  DEPLOY_HOST: oceania.lofipix.app
+  DEPLOY_USER: ubuntu
+  DEPLOY_PATH: /var/www/oceania.lofipix.app
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Bun Environment
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck Scripts
+        working-directory: scripts
+        run: bun run typecheck
+
+      - name: Build Script Bundles
+        run: |
+          set -euo pipefail
+          STAGE="$RUNNER_TEMP/deploy-scripts"
+          rm -rf "$STAGE"
+          mkdir -p "$STAGE/scripts" "$STAGE/packages/db"
+
+          for file in scripts/*.ts; do
+            bun build "$file" --outfile "$STAGE/scripts/$(basename "$file")" --target bun
+          done
+          printf '{"type":"module","private":true}\n' > "$STAGE/scripts/package.json"
+
+          bun build packages/db/schema.ts --outfile "$STAGE/packages/db/schema.js" --target bun
+          printf '{"type":"module","private":true}\n' > "$STAGE/packages/db/package.json"
+          cat > "$STAGE/packages/db/drizzle.config.js" <<'EOF'
+          export default {
+            schema: './schema.js',
+            dialect: 'postgresql',
+            dbCredentials: { url: process.env.DATABASE_URL },
+          };
+          EOF
+
+      - name: Configure SSH
+        env:
+          DEPLOY_PRIVATE_KEY: ${{ secrets.DEPLOY_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Upload Scripts
+        run: |
+          set -euo pipefail
+          STAGE="$RUNNER_TEMP/deploy-scripts"
+          SSH_OPTS="-i $HOME/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
+
+          ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" \
+            "mkdir -p '$DEPLOY_PATH/scripts' '$DEPLOY_PATH/packages/db'"
+          rsync -az --delete -e "ssh $SSH_OPTS" \
+            "$STAGE/scripts/" "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/scripts/"
+          rsync -az --delete -e "ssh $SSH_OPTS" \
+            "$STAGE/packages/db/" "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/packages/db/"
+
+      - name: Verify Deployment
+        run: |
+          set -euo pipefail
+          SSH_OPTS="-i $HOME/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
+          ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" \
+            "test -f '$DEPLOY_PATH/.env.oceania' \
+             && test -f '$DEPLOY_PATH/scripts/reset-database.ts' \
+             && test -f '$DEPLOY_PATH/scripts/powersync.ts' \
+             && test -f '$DEPLOY_PATH/packages/db/drizzle.config.js' \
+             && echo 'scripts deployed to $DEPLOY_PATH/scripts'"
