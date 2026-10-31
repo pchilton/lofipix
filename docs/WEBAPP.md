@@ -6,15 +6,12 @@ auth/uploads/non-synced state, OPFS for local image files. Syncs to the central
 API / PostgreSQL via the PowerSync Service; binaries go to SeaweedFS via
 pre-signed URLs.
 
-## Development camera access
+## Development secure context and camera access
 
-Camera capture uses `navigator.mediaDevices.getUserMedia()`, which requires a secure context. The development PWA uses `http://192.168.1.15:5174`; launch Chrome with the development origin explicitly trusted:
+There are some locks (Web Locks API) and camera capture that require a secure context. 
+Open `chrome://flags/`, find Insecure origins treated as secure, add in exact URL (no trailing slash) of:
+http://192.168.1.15:5174
 
-```sh
-google-chrome --user-data-dir=/tmp/lofipix-camera-chrome --unsafely-treat-insecure-origin-as-secure=http://192.168.1.15:5174 --use-fake-ui-for-media-stream http://192.168.1.15:5174
-```
-
-On a device with a real camera, omit `--use-fake-ui-for-media-stream` to accept the browser's camera permission prompt. Do not reuse a normal Chrome profile with this flag. The application still asks for camera access from the Take Photos route and displays denied/unavailable states.
 
 ## Core loop
 
@@ -93,11 +90,10 @@ metadata is put in the local SQLite collection and uploaded. Other devices can
 see the photo metadata but display **Device-only photo** when the bytes are
 absent locally.
 
-For manual browser smoke testing in development, Chrome must be launched with
-`--unsafely-treat-insecure-origin-as-secure=http://192.168.1.15:5174`. The PWA
+For manual browser smoke testing on the development machine, launch Chrome
+with the matching `--unsafely-treat-insecure-origin-as-secure` origin. The PWA
 provides all five routes (login/dashboard at `/`, capture, finish, and photo
-review). Set the Vite server origin as trusted for camera access; the app itself
-still requests permission on the capture route.
+review); the app itself still requests permission on the capture route.
 
 ## Finish Album (`/albums/:id/finish`)
 

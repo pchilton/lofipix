@@ -4,6 +4,7 @@ import { authClient } from './auth-client';
 import { powerSyncConnector } from './powersync/connector';
 import { powerSyncDatabase } from './powersync/database';
 import { startStatusTracking } from './powersync/status';
+import { supportsPowerSyncContext } from './powersync/secure-context';
 
 const CACHE_KEY = 'lofipix.session';
 const SYNC_USER_KEY = 'lofipix.sync-user';
@@ -87,6 +88,9 @@ export async function refreshSession(): Promise<AppSession | null> {
 }
 
 export async function startSync(userId: string): Promise<void> {
+  if (!supportsPowerSyncContext()) {
+    return;
+  }
   if (!statusTracking) {
     startStatusTracking();
     statusTracking = true;
