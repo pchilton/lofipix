@@ -1,11 +1,8 @@
 # Photo locations
 
-This document specifies how photo bytes are located across the backing stores
-used by lofipix. It is a **design document only**: the models and API endpoints
-described here are proposed and have not been implemented yet.
-
-The `photos` row holds image metadata and never the bytes themselves (see
-`docs/PHOTOS.md`). A photo can exist in several places at once:
+This document describes how photo bytes are located across the backing stores
+used by lofipix. The `photos` row holds image metadata and never the bytes
+themselves (see `docs/PHOTOS.md`). A photo can exist in several places at once:
 
 - **OPFS** — the local copy on the PWA device that captured it;
 - **S3** — the canonical copy in LoFi Pix object storage;
@@ -63,9 +60,9 @@ Relationships:
   reject a location whose photo and provider belong to different
   organisations.
 
-## Proposed models
+## Models
 
-Future files, following the conventions in `packages/db/models/`:
+Implemented in `packages/db/models/`:
 
 | File | Contents |
 | --- | --- |
@@ -226,9 +223,11 @@ field in every row must be decrypted with the old key and re-encrypted with
 the new one. This is a deliberate simplification; a future version can add a
 prefix without changing the column type.
 
-Secrets are decrypted only inside the API and background jobs. They are never
-logged, never included in a PowerSync stream and never returned by a
-client-facing endpoint.
+The encryption helper lives in `packages/db/crypto.ts`:
+`encryptCredential`, `decryptCredential` and `stripEncryptedData`. Secrets are
+decrypted only inside the API and background jobs. They are never logged,
+never included in a PowerSync stream and never returned by a client-facing
+endpoint.
 
 **Public config**
 
@@ -360,8 +359,7 @@ separate provider row in that organisation.
 
 ### Capture and local write
 
-1. The camera capture is compressed to a JPEG (see `docs/PHOTOS.md` and
-   `prompts/tasklist.md`).
+1. The camera capture is compressed to a JPEG (see `docs/PHOTOS.md`).
 2. The PWA computes the image size and lowercase hex SHA-256.
 3. It writes the bytes to OPFS at `photos/{photoId}.jpg`.
 4. It verifies the stored bytes (read back and hash, or hash while writing).
@@ -375,38 +373,26 @@ the write.
 
 ### S3 upload and verification
 
-```text
-PWA                         API                         S3
- |                           |                              |
- |-- POST upload-url ------->|                              |
- |<-- presigned PUT ---------|                              |
- |------------ PUT bytes ---------------------------------->|
- |-- POST locations -------->|                              |
- |                           |-- GET/HEAD object ---------->|
- |                           |<-- bytes --------------------|
- |                           | verify size + SHA-256        |
- |                           | insert photo_locations       |
- |<-- 201 location ----------|                              |
-```
+The PWA obtains a short-lived pre-signed PUT URL from the API, uploads the
+bytes, then confirms the upload. The API reads the uploaded object back and
+hashes it; it does not trust a client-supplied checksum or S3 metadata alone.
+`photos.image_checksum` and `photos.image_size` are the comparison values. A
+mismatch rejects the location, and the invalid object is left for the orphan
+cleanup job.
 
-Proposed endpoints:
+Proposed endpoints (implemented in a later task):
 
-| Endpoint | Purpose |
-| --- | --- |
-| `POST /photos/:id/upload-url` | Returns a short-lived pre-signed PUT URL, required headers, the deterministic `objectKey` and an expiry. Body identifies the S3 `storageProviderId`. |
-| `POST /photos/:id/locations` | Confirms the upload. Body: `{ storageProviderId, objectKey }`. The API checks organisation membership, provider type, expected key, object existence, size and SHA-256, then inserts the location. Idempotent: repeating a successful call returns the existing live location. |
-
-The API must read the uploaded object back and hash it; it does not trust a
-client-supplied checksum or S3 metadata alone. `photos.image_checksum` and
-`photos.image_size` are the comparison values. A mismatch rejects the
-location, and the invalid object is left for the orphan cleanup job.
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/photos/:id/upload-url` | Returns a short-lived pre-signed PUT URL, required headers, the deterministic `objectKey` and an expiry. |
+| `POST` | `/photos/:id/locations` | Confirms and verifies a S3 upload; inserts the location. Idempotent. |
 
 ### OneDrive / Google Drive export
 
 Cloud export is server-side, driven by pgmq:
 
-1. The API (or a submit/export action) enqueues one job per photo and target
-   provider, or a batched album job.
+1. The API enqueues one job per photo and target provider, or a batched album
+   job.
 2. The worker decrypts the individual secret fields in
    `config.encrypted_data`, refreshes the OAuth token if needed and
    re-encrypts the changed fields.
@@ -419,6 +405,8 @@ Cloud export is server-side, driven by pgmq:
    fails the job and surfaces a reconnect state; no location row is written.
 
 Clients never call the provider APIs and never receive the tokens.
+
+Export jobs and API routes are implemented in a separate task.
 
 ### Read path
 
@@ -437,6 +425,9 @@ For a photo, the client resolves the best available copy:
 The client must ignore locations whose provider is tombstoned, and must fall
 back if a location is stale. "Synced" in the UI means at least one live cloud
 location exists, not merely that a local row was written.
+
+Content endpoints (`GET /photos/:id/content`) and provider API routes are
+implemented in a later task.
 
 ### Delete and retention
 
@@ -477,13 +468,14 @@ It should use a provider-specific listing or a recorded upload intent. The
 upload queue is the primary record; the database does not store pending
 locations by design.
 
+The cleanup job is implemented in a later task.
+
 ## PowerSync
 
 ### Streams
 
 Global streams are used for now, consistent with the existing `global_albums`.
-Proposed additions to the sync rules in `scripts/powersync.ts` (documented
-here, not implemented in this task):
+The sync rules are implemented in `scripts/powersync.ts`:
 
 ```yaml
 streams:
@@ -495,33 +487,31 @@ streams:
   global_photos:
     queries:
       - SELECT id, album_id, position, image_width, image_height, image_quality,
-               image_size, captured_at, image_checksum, deleted_at, created_at,
-               updated_at
+                 image_size, captured_at, image_checksum, deleted_at, created_at,
+                 updated_at
         FROM photos
 
   global_storage_providers:
     queries:
       - SELECT id, organization_id, provider_type, label, external_id,
-               config - 'encrypted_data' AS config, deleted_at, created_at,
-               updated_at
+                 config - 'encrypted_data' AS config, deleted_at, created_at,
+                 updated_at
         FROM storage_providers
 
   global_photo_locations:
     queries:
       - SELECT id, photo_id, storage_provider_id, object_key, deleted_at,
-               created_at, updated_at
+                 created_at, updated_at
         FROM photo_locations
 ```
 
 `config.encrypted_data` is deliberately stripped from
 `global_storage_providers` with a `config - 'encrypted_data'` projection.
 Never select `config` or `*` from `storage_providers` in a sync rule without
-removing that key. If the deployed PowerSync version rejects the expression,
-expose a database view that performs the same projection and sync the view.
-There is no `global_devices` stream because there is no devices table.
+removing that key.
 
-The existing `global_albums` query should be extended with `organization_id`
-and the tombstone/timestamp columns so clients can filter deletes and a future
+The existing `global_albums` query selects `organization_id` and the
+tombstone/timestamp columns so clients can filter deletes and a future
 organisation-scoped stream can reuse it.
 
 ### Global-stream caveat
@@ -591,7 +581,7 @@ export worker.
 | Location tombstoned then re-uploaded | New location row; the partial unique index allows it. |
 | Stale OPFS provider | Manual tombstone from the website; its locations are tombstoned and local bytes are already gone. |
 
-## Proposed API surface
+## API surface
 
 These endpoints are proposals for a later implementation; no routes exist yet.
 All are API-only, authenticated, and scoped to the caller's organisation.
@@ -609,97 +599,21 @@ All are API-only, authenticated, and scoped to the caller's organisation.
 | `GET` | `/photos/:id/content` | Read local/remote content or redirect to a pre-signed URL. |
 | `POST` | `/albums/:id/export` | Enqueue cloud export for the album's photos. |
 
-## Implementation notes (future task)
+## Implementation status
 
-- Add the enum and two tables in `packages/db/models/`, re-export them from
-  `packages/db/schema.ts`, and extend `scripts/reset-database.ts` verification
-  to assert the enum, both tables, foreign keys, partial unique indexes and
-  checks.
-- Use `drizzle-kit push`, not migration files.
-- Define the public select schema with `config.encrypted_data` removed; keep
-  the server-only schema separate so a careless API handler cannot serialise
-  secrets.
-- Add a server-only helper for per-field AES-256-GCM encryption/decryption:
-  a fresh 12-byte IV per field, a 16-byte tag, and a
-  `base64(iv):base64(tag):base64(ciphertext)` value. Validate that every
-  `encrypted_data` value has exactly three non-empty parts.
-- Add the `STORAGE_PROVIDER_CREDENTIALS_KEY` variable to `.env.<REGION>` and the
-  deployment documentation; it is a hex-encoded 32-byte key. There is no
-  version prefix, so rotation requires re-encrypting every `encrypted_data`
-  field with the new key.
-- Add the PowerSync streams above, then a follow-up task for organisation
-  scoping.
-- Add API routes and pgmq jobs for export, verification and cleanup in a
-  separate prompt; this document does not implement them.
+Completed in this task:
 
-## Proposed changes to other documents
+- `packages/db/models/storage-provider.ts` — `storage_providers` table, enum, public/server/insert Zod schemas, types.
+- `packages/db/models/photo-location.ts` — `photo_locations` table, Zod schemas, types.
+- `packages/db/crypto.ts` — per-field AES-256-GCM encryption/decryption and `encrypted_data` stripping.
+- `packages/db/schema.ts` — re-exports both new models.
+- `scripts/reset-database.ts` — verification asserts both tables, foreign keys, partial unique indexes and check constraints.
+- `scripts/powersync.ts` — sync config adds `global_storage_providers` and `global_photo_locations` streams and extends `global_albums`.
+- `.env.example` — adds `STORAGE_PROVIDER_CREDENTIALS_KEY`.
 
-The following changes are **proposals only**; `docs/` files other than this
-one have not been modified.
+Deferred to later tasks:
 
-### `docs/PHOTOS.md`
-
-- Change the intro link from "Backing stores" to
-  `[Photo locations](PHOTO_LOCATIONS.md)`.
-- Replace the final paragraph of the "Backing stores" section ("The table
-  currently holds no pointer to any of these…") with a link to this document:
-  the bytes are recorded in `photo_locations`, with one row per verified copy.
-- Add a sentence to the sync section noting that `photos` now has a
-  `global_photos` PowerSync stream and that locations are separate rows.
-
-### `docs/POWERSYNC.md`
-
-- Extend the `streams` example with `global_photos`,
-  `global_storage_providers` (with `config.encrypted_data` stripped) and
-  `global_photo_locations`.
-- Extend `global_albums` to select `organization_id`, `deleted_at`,
-  `created_at` and `updated_at`.
-- Add a warning that global streams currently cross organisation boundaries,
-  and a follow-up section describing organisation-scoped parameterised
-  streams using a PowerSync JWT claim.
-- State explicitly that `storage_providers.config.encrypted_data` must never
-  appear in a sync query and that `SELECT *` must not be used on that table.
-
-### `docs/ARCHITECTURE.md`
-
-- Add `storage_providers` and `photo_locations` to the shared-model list and
-  to the PWA data boundary description.
-- Update "Binary Uploads" to include the verification-confirmation step and
-  the location row.
-- Add the pgmq export and cleanup jobs to the server stack.
-- Note that each secret field in `config.encrypted_data` is individually
-  encrypted with AES-256-GCM using `STORAGE_PROVIDER_CREDENTIALS_KEY` and is
-  server-only.
-
-### `docs/WEBAPP.md`
-
-- Replace "device-only / queued / synced" with states derived from
-  `photo_locations`: local OPFS only, queued, S3 location live, cloud
-  export complete.
-- Document OPFS provider auto-provisioning and the client-minted device UUID.
-- Document the read fallback: OPFS, then S3 pre-signed URL, then
-  cloud-drive proxy.
-- Note that Drive/OneDrive copies survive deletion and provider disconnect.
-
-### `docs/STORAGE.md`
-
-- Add the object-key layout from this document and the bucket-to-provider
-  mapping.
-- Document pre-signed PUT verification (read back, hash, compare with
-  `photos`).
-- Document the cloud export, orphan cleanup and 30-day retention jobs.
-- Document `STORAGE_PROVIDER_CREDENTIALS_KEY`, per-field AES-256-GCM
-  encryption and the re-encrypt-all rotation.
-
-### `docs/DEPLOYMENT.md`
-
-- Add `STORAGE_PROVIDER_CREDENTIALS_KEY` (hex-encoded 32 bytes, required in
-  every region) to the environment/configuration section, with a note that
-  the same key must be present on the API and worker hosts. There is no
-  version prefix, so rotation requires re-encrypting every `encrypted_data`
-  field.
-
-### `README.md` and `AGENTS.md`
-
-- Add `PHOTO_LOCATIONS.md` to the documentation index. These two files are
-  updated as part of this task.
+- API routes (`/storage-providers/*`, `/photos/:id/*`, `/albums/:id/export`).
+- pgmq export, verification and cleanup jobs.
+- Organisation-scoped PowerSync streams.
+- www/ and pwa/ client implementation.

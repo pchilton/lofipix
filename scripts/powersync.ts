@@ -36,7 +36,28 @@ const SYNC_CONFIG_YAML = `config:
 streams:
   global_albums:
     queries:
-      - SELECT id, name, notes FROM albums
+      - SELECT id, organization_id, name, notes, deleted_at, created_at, updated_at
+        FROM albums
+
+  global_photos:
+    queries:
+      - SELECT id, album_id, position, image_width, image_height, image_quality,
+                 image_size, captured_at, image_checksum, deleted_at, created_at,
+                 updated_at
+        FROM photos
+
+  global_storage_providers:
+    queries:
+      - SELECT id, organization_id, provider_type, label, external_id,
+                 config - 'encrypted_data' AS config, deleted_at, created_at,
+                 updated_at
+        FROM storage_providers
+
+  global_photo_locations:
+    queries:
+      - SELECT id, photo_id, storage_provider_id, object_key, deleted_at,
+                 created_at, updated_at
+        FROM photo_locations
 `;
 
 interface PowerSyncOptions {

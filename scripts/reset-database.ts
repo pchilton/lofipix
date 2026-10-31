@@ -136,6 +136,14 @@ async function verify(client: postgres.Sql): Promise<void> {
     throw new Error('public schema missing photos table');
   }
 
+  if (!publicTables.includes('storage_providers')) {
+    throw new Error('public schema missing storage_providers table');
+  }
+
+  if (!publicTables.includes('photo_locations')) {
+    throw new Error('public schema missing photo_locations table');
+  }
+
   const photoForeignKeys = await client<ForeignKeyRow[]>`
     select conname, pg_get_constraintdef(oid) as definition from pg_constraint
     where conrelid = 'public.photos'::regclass and contype = 'f'
@@ -175,6 +183,117 @@ async function verify(client: postgres.Sql): Promise<void> {
   if (missingChecks.length > 0) {
     throw new Error(
       `public.photos is missing check constraints: ${missingChecks.join(', ')} (found: ${photoChecks.map((c) => c.conname).join(', ')})`,
+    );
+  }
+
+  const providerForeignKeys = await client<ForeignKeyRow[]>`
+    select conname, pg_get_constraintdef(oid) as definition from pg_constraint
+    where conrelid = 'public.storage_providers'::regclass and contype = 'f'
+  `;
+  const providerOrgForeignKey = providerForeignKeys.find((fk) =>
+    fk.definition.includes('REFERENCES auth.organization(id)'),
+  );
+  if (!providerOrgForeignKey) {
+    throw new Error(
+      `public.storage_providers is missing the foreign key to auth.organization(id): ${JSON.stringify(providerForeignKeys)}`,
+    );
+  }
+
+  const providerIndexes = await client<IndexRow[]>`
+    select indexname, indexdef from pg_indexes
+    where schemaname = 'public' and tablename = 'storage_providers'
+  `;
+  const providerUniqueIndex = providerIndexes.find(
+    (idx) =>
+      idx.indexname === 'storage_providers_org_type_external_unique' &&
+      idx.indexdef.includes('UNIQUE') &&
+      idx.indexdef.includes('deleted_at IS NULL'),
+  );
+  if (!providerUniqueIndex) {
+    throw new Error(
+      `public.storage_providers is missing the partial unique index on (organization_id, provider_type, external_id) where deleted_at is null: ${JSON.stringify(providerIndexes)}`,
+    );
+  }
+
+  const providerChecks = await client<CheckRow[]>`
+    select conname, pg_get_constraintdef(oid) as definition from pg_constraint
+    where conrelid = 'public.storage_providers'::regclass and contype = 'c'
+  `;
+  const EXPECTED_PROVIDER_CHECKS = [
+    'storage_providers_label_non_empty',
+    'storage_providers_external_id_non_empty',
+    'storage_providers_config_object',
+    'storage_providers_encrypted_data_object',
+    'storage_providers_opfs_platform',
+  ];
+  const missingProviderChecks = EXPECTED_PROVIDER_CHECKS.filter(
+    (name) => !providerChecks.some((check) => check.conname === name),
+  );
+  if (missingProviderChecks.length > 0) {
+    throw new Error(
+      `public.storage_providers is missing check constraints: ${missingProviderChecks.join(', ')} (found: ${providerChecks.map((c) => c.conname).join(', ')})`,
+    );
+  }
+
+  const locationForeignKeys = await client<ForeignKeyRow[]>`
+    select conname, pg_get_constraintdef(oid) as definition from pg_constraint
+    where conrelid = 'public.photo_locations'::regclass and contype = 'f'
+  `;
+  const locationPhotoForeignKey = locationForeignKeys.find((fk) =>
+    /REFERENCES (public\.)?photos\(id\)/.test(fk.definition),
+  );
+  const locationProviderForeignKey = locationForeignKeys.find((fk) =>
+    /REFERENCES (public\.)?storage_providers\(id\)/.test(fk.definition),
+  );
+  if (!locationPhotoForeignKey) {
+    throw new Error(
+      `public.photo_locations is missing the foreign key to public.photos(id): ${JSON.stringify(locationForeignKeys)}`,
+    );
+  }
+  if (!locationProviderForeignKey) {
+    throw new Error(
+      `public.photo_locations is missing the foreign key to public.storage_providers(id): ${JSON.stringify(locationForeignKeys)}`,
+    );
+  }
+
+  const locationIndexes = await client<IndexRow[]>`
+    select indexname, indexdef from pg_indexes
+    where schemaname = 'public' and tablename = 'photo_locations'
+  `;
+  const locationUniqueIndex = locationIndexes.find(
+    (idx) =>
+      idx.indexname === 'photo_locations_photo_provider_unique' &&
+      idx.indexdef.includes('UNIQUE') &&
+      idx.indexdef.includes('deleted_at IS NULL'),
+  );
+  if (!locationUniqueIndex) {
+    throw new Error(
+      `public.photo_locations is missing the partial unique index on (photo_id, storage_provider_id) where deleted_at is null: ${JSON.stringify(locationIndexes)}`,
+    );
+  }
+  const hasLocationProviderIndex = locationIndexes.some(
+    (idx) => idx.indexname === 'photo_locations_storage_provider_id_idx',
+  );
+  const hasLocationPhotoIndex = locationIndexes.some(
+    (idx) => idx.indexname === 'photo_locations_photo_id_idx',
+  );
+  if (!hasLocationProviderIndex || !hasLocationPhotoIndex) {
+    throw new Error(
+      `public.photo_locations is missing indexes on storage_provider_id and photo_id: ${JSON.stringify(locationIndexes)}`,
+    );
+  }
+
+  const locationChecks = await client<CheckRow[]>`
+    select conname, pg_get_constraintdef(oid) as definition from pg_constraint
+    where conrelid = 'public.photo_locations'::regclass and contype = 'c'
+  `;
+  const EXPECTED_LOCATION_CHECKS = ['photo_locations_object_key_non_empty'];
+  const missingLocationChecks = EXPECTED_LOCATION_CHECKS.filter(
+    (name) => !locationChecks.some((check) => check.conname === name),
+  );
+  if (missingLocationChecks.length > 0) {
+    throw new Error(
+      `public.photo_locations is missing check constraints: ${missingLocationChecks.join(', ')} (found: ${locationChecks.map((c) => c.conname).join(', ')})`,
     );
   }
 
