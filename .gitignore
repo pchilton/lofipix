@@ -84,3 +84,6 @@ mobile/ios/*.xcodeproj/xcuserdata/
 # Database
 *.sqlite
 *.sqlite3
+
+# PowerSync worker assets copied from @powersync/web (see pwa/package.json "assets")
+pwa/public/@powersync/

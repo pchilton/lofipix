@@ -35,29 +35,47 @@ const SYNC_CONFIG_YAML = `config:
 
 streams:
   global_albums:
+    auto_subscribe: true
     queries:
-      - SELECT id, organization_id, name, notes, deleted_at, created_at, updated_at
+      - SELECT albums.id, albums.organization_id, albums.name, albums.notes,
+               albums.deleted_at, albums.created_at, albums.updated_at
         FROM albums
+        WHERE albums.organization_id = auth.parameter('organization_id')
 
   global_photos:
+    auto_subscribe: true
     queries:
-      - SELECT id, album_id, position, image_width, image_height, image_quality,
-                 image_size, captured_at, image_checksum, deleted_at, created_at,
-                 updated_at
+      - SELECT photos.id, photos.album_id, photos.position, photos.image_width,
+               photos.image_height, photos.image_quality, photos.image_size,
+               photos.captured_at, photos.image_checksum, photos.deleted_at,
+               photos.created_at, photos.updated_at
         FROM photos
+        JOIN albums ON albums.id = photos.album_id
+        WHERE albums.organization_id = auth.parameter('organization_id')
 
   global_storage_providers:
+    auto_subscribe: true
     queries:
-      - SELECT id, organization_id, provider_type, label, external_id,
-                 config - 'encrypted_data' AS config, deleted_at, created_at,
-                 updated_at
+      - SELECT storage_providers.id, storage_providers.organization_id,
+               storage_providers.provider_type, storage_providers.label,
+               storage_providers.external_id,
+               storage_providers.config - 'encrypted_data' AS config,
+               storage_providers.deleted_at, storage_providers.created_at,
+               storage_providers.updated_at
         FROM storage_providers
+        WHERE storage_providers.organization_id = auth.parameter('organization_id')
 
   global_photo_locations:
+    auto_subscribe: true
     queries:
-      - SELECT id, photo_id, storage_provider_id, object_key, deleted_at,
-                 created_at, updated_at
+      - SELECT photo_locations.id, photo_locations.photo_id,
+               photo_locations.storage_provider_id, photo_locations.object_key,
+               photo_locations.deleted_at, photo_locations.created_at,
+               photo_locations.updated_at
         FROM photo_locations
+        JOIN photos ON photos.id = photo_locations.photo_id
+        JOIN albums ON albums.id = photos.album_id
+        WHERE albums.organization_id = auth.parameter('organization_id')
 `;
 
 interface PowerSyncOptions {

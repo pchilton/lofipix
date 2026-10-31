@@ -20,6 +20,10 @@ const pool = resolvePool();
 const baseURL = process.env.API_URL ?? 'http://192.168.1.15:5634';
 const isProduction = baseURL.startsWith('https://');
 
+type FindOrganisationOfUser = (userId: string) => Promise<string | null>;
+
+let findOrganisationOfUser: FindOrganisationOfUser | undefined;
+
 export const auth = betterAuth({
   baseURL,
   secret: process.env.BETTER_AUTH_SECRET,
@@ -40,6 +44,22 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
+  databaseHooks: {
+    session: {
+      create: {
+        before: async (session) => {
+          if (typeof session.activeOrganizationId === 'string') {
+            return;
+          }
+          const organizationId = await findOrganisationOfUser?.(session.userId);
+          if (!organizationId) {
+            return;
+          }
+          return { data: { ...session, activeOrganizationId: organizationId } };
+        },
+      },
+    },
+  },
   database: {
     dialect: new PostgresDialect({ pool }),
     type: 'postgres',
@@ -56,8 +76,25 @@ export const auth = betterAuth({
     genericOAuth({
       config: [],
     }),
-    jwt(),
+    jwt({
+      jwt: {
+        audience: process.env.POWERSYNC_AUDIENCE,
+        definePayload: ({ session }) => ({
+          organization_id:
+            typeof session.activeOrganizationId === 'string' ? session.activeOrganizationId : null,
+        }),
+      },
+    }),
   ],
 });
+
+findOrganisationOfUser = async (userId) => {
+  const context = await auth.$context;
+  const member = await context.adapter.findOne<{ organizationId: string }>({
+    model: 'member',
+    where: [{ field: 'userId', value: userId }],
+  });
+  return member?.organizationId ?? null;
+};
 
 export type Auth = typeof auth;

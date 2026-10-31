@@ -4,6 +4,12 @@ import { VitePWA } from "vite-plugin-pwa";
 import { iconsPlugin } from "@lofipix/ui/icons/vite";
 
 export default defineConfig({
+  worker: {
+    format: "es",
+  },
+  optimizeDeps: {
+    exclude: ["@powersync/web"],
+  },
   plugins: [
     iconsPlugin(),
     solid(),
@@ -39,7 +45,8 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,png,svg,webmanifest}"],
+        globPatterns: ["**/*.{js,css,html,png,svg,webmanifest,wasm}"],
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         navigateFallback: "index.html",
       },
       devOptions: {

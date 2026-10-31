@@ -19,7 +19,7 @@ export const albums = pgTable('albums', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-const normalizeNotes = (value: string): string | null => {
+export const normalizeNotes = (value: string): string | null => {
   const normalized = value
     .replace(/\r\n?/g, '\n')
     .split('\n')

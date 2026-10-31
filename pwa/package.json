@@ -4,16 +4,24 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "bunx vite",
-    "build": "bunx vite build",
+    "assets": "powersync-web copy-assets --output public",
+    "dev": "bun run assets && bunx vite",
+    "build": "bun run assets && bunx vite build",
     "preview": "bunx vite preview",
     "typecheck": "bunx tsc --noEmit"
   },
   "dependencies": {
     "@lofipix/db": "workspace:*",
     "@lofipix/ui": "workspace:*",
+    "@powersync/web": "^2.5.0",
+    "@tanstack/powersync-db-collection": "^1.0.0-rc.1.1",
+    "@tanstack/solid-db": "^1.0.0-rc.1.1",
+    "@tanstack/solid-form": "^1.33.5",
     "@tanstack/solid-router": "^1.170.36",
-    "solid-js": "^1.9.15"
+    "better-auth": "1.7.11",
+    "solid-js": "^1.9.15",
+    "uuid": "^14",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/bun": "^1.4.2",

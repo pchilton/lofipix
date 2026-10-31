@@ -6,6 +6,16 @@ auth/uploads/non-synced state, OPFS for local image files. Syncs to the central
 API / PostgreSQL via the PowerSync Service; binaries go to SeaweedFS via
 pre-signed URLs.
 
+## Development camera access
+
+Camera capture uses `navigator.mediaDevices.getUserMedia()`, which requires a secure context. The development PWA uses `http://192.168.1.15:5174`; launch Chrome with the development origin explicitly trusted:
+
+```sh
+google-chrome --user-data-dir=/tmp/lofipix-camera-chrome --unsafely-treat-insecure-origin-as-secure=http://192.168.1.15:5174 --use-fake-ui-for-media-stream http://192.168.1.15:5174
+```
+
+On a device with a real camera, omit `--use-fake-ui-for-media-stream` to accept the browser's camera permission prompt. Do not reuse a normal Chrome profile with this flag. The application still asks for camera access from the Take Photos route and displays denied/unavailable states.
+
 ## Core loop
 
 ```text
@@ -20,9 +30,11 @@ Dashboard (view albums)
 The PWA is a loop: view albums, create new ones, add photos, submit, back to
 viewing. All steps work offline; sync happens when connectivity returns.
 
-## Pages
+## Logged out user
 
-### 1. Login (`/login`)
+If there is no session information, then the app prompts to be logged in.
+
+### Welcome (`/`)
 
 Authenticate before anything else. Works online; session persists offline.
 
@@ -30,7 +42,11 @@ Authenticate before anything else. Works online; session persists offline.
 - Validation + auth errors inline; loading state on submit.
 - Success → Dashboard. Offline with no session → blocked with "connect to sign in" state.
 
-### 2. Dashboard (`/`)
+## Logged in user
+
+The app is logged in. It should have user session information, as well as knowing what organisation the user belongs to.
+
+### Dashboard (`/`)
 
 Cut-down album view, reverse created order, sync progress visible.
 
@@ -42,7 +58,7 @@ Cut-down album view, reverse created order, sync progress visible.
 - **Album list**: older albums with thumbnails + per-photo sync state (device-only / queued / synced).
 - Tap any album → Finish Album (review) or Take Photos (add more).
 
-### 3. Take Photos (`/albums/:id/capture`)
+### Take Photos (`/albums/:id/capture`)
 
 Full-screen camera capture for the current album.
 
@@ -52,7 +68,38 @@ Full-screen camera capture for the current album.
 - Finish button → Finish Album.
 - Fully offline; every capture has local-success state, upload queued separately.
 
-### 4. Finish Album (`/albums/:id/finish`)
+### Implemented skeleton and PowerSync flow
+
+The initial PWA implementation uses TanStack DB collections over the
+PowerSync Web SDK. The SQLite `albums` and `photos` collections load into
+reactive TanStack queries. Local collection writes are applied to SQLite with
+`PowerSyncTransactor`; PowerSync batches queued CRUD operations to
+`POST /api/sync/upload`. The API validates operation shape and row fields with
+shared Zod schemas, checks the session's active organisation and album
+ownership, and translates deletes into `deleted_at` tombstones.
+
+`GET /api/sync/token` issues a short-lived JWT with `sub`, `aud` and
+`organization_id`, after checking the Better Auth session and membership. Every
+PowerSync stream is filtered using `auth.parameter('organization_id')`; photos
+and photo locations are scoped through their album join. `scripts/seed-demo.ts`
+creates two demo organisations, each with separate users, albums and photo
+metadata. It only writes when passed `--apply`; set `SEED_PASSWORD` before
+running `REGION=cholet bun run seed -- --apply` from `scripts/`.
+
+The capture screen requests camera access only after the user selects **Allow
+camera**. Images are resized to a maximum width of 1280 px and compressed as
+JPEG toward 300 KB, saved under `/photos/<photo-id>.jpg` in OPFS, and only
+metadata is put in the local SQLite collection and uploaded. Other devices can
+see the photo metadata but display **Device-only photo** when the bytes are
+absent locally.
+
+For manual browser smoke testing in development, Chrome must be launched with
+`--unsafely-treat-insecure-origin-as-secure=http://192.168.1.15:5174`. The PWA
+provides all five routes (login/dashboard at `/`, capture, finish, and photo
+review). Set the Vite server origin as trusted for camera access; the app itself
+still requests permission on the capture route.
+
+## Finish Album (`/albums/:id/finish`)
 
 Review everything on the device before submitting.
 
@@ -63,7 +110,7 @@ Review everything on the device before submitting.
 - **Add Photos** (emphasised when arriving via "Album already exists") → back to Take Photos.
 - **Submit**: enqueues local photos for upload, returns to Dashboard with this album on top.
 
-### 5. Photo review (`/albums/:id/photos/:photoId`)
+### Photo review (`/albums/:id/photos/:photoId`)
 
 Full-size local (OPFS) or remote (pre-signed URL) image.
 

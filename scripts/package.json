@@ -5,14 +5,16 @@
   "type": "module",
   "scripts": {
     "powersync": "bun powersync.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "seed": "bun seed-demo.ts"
   },
   "dependencies": {
     "@lofipix/db": "workspace:*",
     "@lofipix/env": "workspace:*",
     "better-auth": "1.7.11",
     "drizzle-orm": "^0.45.2",
-    "postgres": "latest"
+    "postgres": "latest",
+    "uuid": "^14"
   },
   "devDependencies": {
     "@types/bun": "^1.4.2",

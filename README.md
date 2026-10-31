@@ -99,11 +99,11 @@ graph TD
 | Path | Description | Technology |
 | --- | --- | --- |
 | `api/` | Central API, source of truth | Hono + Bun + Drizzle ORM + PostgreSQL + PowerSync Service + pgmq |
-| `packages/db/` | Database schema (Drizzle `push`) + Better Auth config | TypeScript + Drizzle ORM + PostgreSQL + Better Auth (auth schema) |
+| `packages/db/` | Database schema (Drizzle `push`), shared Zod models and Better Auth config | TypeScript + Drizzle ORM + PostgreSQL + Better Auth (auth schema) |
 | `packages/ui/` | Shared TarkUI components (Ark UI + Tailwind CSS v4), Iconify icons (unplugin-icons), Storybook component isolation, Vitest story tests | SolidJS + Ark UI + Tailwind CSS v4 + unplugin-icons + Storybook + Vitest, Bun |
 | `docs/` | Architecture and operations documentation | Markdown (see `ARCHITECTURE.md`, `AUTHENTICATION.md`, `PHOTOS.md`, `PHOTO_LOCATIONS.md`, `TARKUI.md`, `ICONS.md`, `UPTRACE.md`) |
 | `pwa/` | Progressive Web Application, offline-first | SolidJS + TanStack Router (Solid) + Vite + VitePWA + PowerSync Web SDK (OPFS-backed SQLite) + TanStack DB + TanStack Query, Bun |
-| `scripts/` | Operational scripts (incl. database reset, PowerSync container start) | TypeScript + Bun (workspace package) |
+| `scripts/` | Operational scripts (incl. database reset, PowerSync container start and demo seeding) | TypeScript + Bun (workspace package) |
 | `workers/` | CloudFlare Workers | JavaScript |
 | `www/` | Website (plain static site, no PWA, no PowerSync) | SolidJS + TanStack Router (Solid) + Vite, static export, Bun + Ark UI + Tailwind CSS + TanStack Query |
 
