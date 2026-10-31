@@ -36,4 +36,4 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: pwa
-          command: deploy --name lofipix-pwa --assets dist --compatibility-date 2025-11-01
+          command: deploy

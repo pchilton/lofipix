@@ -7,11 +7,25 @@ This document describes the deployment architecture and domain configuration for
 Deployed using Github actions
 
 - The API is deployed to a VPS server via SSH
-- The Website is served by Cloudflare Pages
-- The PWA is served by Cloudflare Pages
+- The Website is served by Cloudflare Workers (static assets)
+- The PWA is served by Cloudflare Workers (static assets)
 - Edge functions are served by Cloudflare Workers.
 
 There is no staging environment. Development (cholet) and production (oceania) only.
+
+## Static hosting and SPA fallback
+
+The website and PWA are static Vite builds deployed as Cloudflare Workers
+static assets by `cloudflare/wrangler-action`. Client-side routes must fall
+back to `index.html`:
+
+- `www/wrangler.jsonc` sets `assets.not_found_handling` to
+  `"single-page-application"`, so a request such as `/auth` serves
+  `dist/index.html` with status 200 and the SolidJS router handles it.
+- `deploy-www.yml` runs `wrangler deploy`, which reads that config (name, asset
+  directory, fallback).
+- `pwa/wrangler.jsonc` sets the same fallback for the PWA, and
+  `deploy-pwa.yml` runs `wrangler deploy` against that config.
 
 ## Authentication
 
@@ -20,8 +34,8 @@ Authentication uses "Better Auth". Authentication is handled by the API, setting
 ## Domain Names
 
 - `lofipix.app` - Redirect to www (Cloudflare Worker)
-- `www.lofipix.app` - Web App (Cloudflare Pages)
-- `pwa.lofipix.app` - PWA App (Cloudflare Pages)
+- `www.lofipix.app` - Web App (Cloudflare Workers)
+- `pwa.lofipix.app` - PWA App (Cloudflare Workers)
 - `edge.lofipix.app` - Edge functions (Cloudflare Worker)
 
 ## Production VPS
