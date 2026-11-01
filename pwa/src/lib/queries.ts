@@ -1,20 +1,20 @@
 import { isNull, useLiveQuery } from '@tanstack/solid-db';
-import { albumsCollection, photosCollection } from './powersync/collections';
+import { getAlbumsCollection, getPhotosCollection } from './db/collections';
 
 export function useLiveAlbums() {
   return useLiveQuery((q) =>
     q
-      .from({ album: albumsCollection })
-      .where(({ album }) => isNull(album.deleted_at))
-      .orderBy(({ album }) => album.updated_at, 'desc'),
+      .from({ album: getAlbumsCollection() })
+      .where(({ album }) => isNull(album.deletedAt))
+      .orderBy(({ album }) => album.updatedAt, 'desc'),
   );
 }
 
 export function useLivePhotos() {
   return useLiveQuery((q) =>
     q
-      .from({ photo: photosCollection })
-      .where(({ photo }) => isNull(photo.deleted_at))
+      .from({ photo: getPhotosCollection() })
+      .where(({ photo }) => isNull(photo.deletedAt))
       .orderBy(({ photo }) => photo.position, 'asc'),
   );
 }

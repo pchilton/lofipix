@@ -1,10 +1,11 @@
 # Webapp PWA (pwa.lofipix.app) — Storyboard
 
-Offline-first capture loop on mobile. SolidJS + VitePWA, PowerSync Web SDK
-(OPFS-backed SQLite), TanStack DB for reactive collections, TanStack Query for
-auth/uploads/non-synced state, OPFS for local image files. Syncs to the central
-API / PostgreSQL via the PowerSync Service; binaries go to SeaweedFS via
-pre-signed URLs.
+Offline-first capture loop on mobile. SolidJS + VitePWA, PGlite (IndexedDB
+VFS), TanStack DB collections over PGlite, TanStack Query for
+auth/uploads/non-synced state, OPFS for local image files. PostgreSQL rows
+arrive as ElectricSQL shapes through the API proxy; local writes queue in a
+PGlite outbox and post to the API. Binaries go to SeaweedFS via pre-signed
+URLs (a later task).
 
 ## Development secure context and camera access
 
@@ -60,33 +61,51 @@ Cut-down album view, reverse created order, sync progress visible.
 Full-screen camera capture for the current album.
 
 - Camera view: live preview; graceful "no camera permission" state.
-- Capture button (large, central); each shot writes to OPFS + local SQLite row instantly.
+- Capture button (large, central); each shot writes to OPFS + a local PGlite row instantly.
 - Thumbnail strip: last three captures.
 - Finish button → Finish Album.
 - Fully offline; every capture has local-success state, upload queued separately.
 
-### Implemented skeleton and PowerSync flow
+### Implemented skeleton and sync flow
 
-The initial PWA implementation uses TanStack DB collections over the
-PowerSync Web SDK. The SQLite `albums` and `photos` collections load into
-reactive TanStack queries. Local collection writes are applied to SQLite with
-`PowerSyncTransactor`; PowerSync batches queued CRUD operations to
-`POST /api/sync/upload`. The API validates operation shape and row fields with
-shared Zod schemas, checks the session's active organisation and album
-ownership, and translates deletes into `deleted_at` tombstones.
+The initial PWA implementation opens `idb://lofipix` in PGlite on startup and
+hydrates four TanStack DB collections (`albums`, `photos`, `photo_locations`,
+`storage_providers`) through `tanstack-db-pglite`. A Web Lock prevents two
+tabs from opening the same database.
 
-`GET /api/sync/token` issues a short-lived JWT with `sub`, `aud` and
-`organization_id`, after checking the Better Auth session and membership. Every
-PowerSync stream is filtered using `auth.parameter('organization_id')`; photos
-and photo locations are scoped through their album join. `scripts/seed-demo.ts`
-creates two demo organisations, each with separate users, albums and photo
-metadata. It only writes when passed `--apply`; set `SEED_PASSWORD` before
-running `REGION=cholet bun run seed -- --apply` from `scripts/`.
+Reads: after sign-in the app starts one Electric `ShapeStream` per table at
+`/api/sync/shapes/:table`. The API resolves the Better Auth session and active
+organisation, injects the `organization_id` filter, the column projection and
+the Electric secret, and streams the shape. `must-refetch` clears non-pending
+local rows and replays the snapshot. Tombstones are synced, and live queries
+filter `deletedAt == null`.
+
+Writes: a local collection write sets the client-only `outboxNeeded` flag.
+After the TanStack DB transaction settles, the row or changed columns are
+written to the PGlite `outbox` with a UUIDv7 mutation id and the local
+`version` as `baseVersion`. The sender coalesces pending edits per record and
+posts one mutation per record at a time to `POST /api/sync/mutations`.
+
+The API applies each mutation in its own transaction with a version check,
+turns deletes into `deleted_at` tombstones, and records the mutation id in
+`sync_mutations` so retries are idempotent. Applied rows/versions are written
+back to PGlite; conflicts replace the local row with the server row and drop
+the pending edit; rejected mutations become `dead`. Retries back off
+exponentially; dead rows are retried once on the next app start.
+
+A startup reconciliation pass catches the small crash window between a local
+row write and its outbox insert by finding rows with `outboxNeeded = true`
+that have no matching outbox entry.
+
+`scripts/seed-demo.ts` creates two demo organisations, each with separate
+users, albums and photo metadata. It only writes when passed `--apply`; set
+`SEED_PASSWORD` before running `REGION=cholet bun run seed -- --apply` from
+`scripts/`.
 
 The capture screen requests camera access only after the user selects **Allow
 camera**. Images are resized to a maximum width of 1280 px and compressed as
 JPEG toward 300 KB, saved under `/photos/<photo-id>.jpg` in OPFS, and only
-metadata is put in the local SQLite collection and uploaded. Other devices can
+metadata is put in the local PGlite collections and synced. Other devices can
 see the photo metadata but display **Device-only photo** when the bytes are
 absent locally.
 
@@ -94,6 +113,13 @@ For manual browser smoke testing on the development machine, launch Chrome
 with the matching `--unsafely-treat-insecure-origin-as-secure` origin. The PWA
 provides all five routes (login/dashboard at `/`, capture, finish, and photo
 review); the app itself still requests permission on the capture route.
+
+The PGlite schema is managed with `drizzle-kit push` at build time. `bun run
+snapshot` writes a versioned, empty data-dir archive to `public/pglite/`;
+first run loads it, and `local_meta.schema_version` drives upgrades. VitePWA
+installs updates with `registerType: 'prompt'`; the new service worker only
+activates after the outbox is drained and all shapes are up to date, so the
+old cached app keeps working offline.
 
 ## Finish Album (`/albums/:id/finish`)
 
@@ -114,9 +140,9 @@ Full-size local (OPFS) or remote (pre-signed URL) image.
 
 ## Sync & upload behaviour
 
-- Submits enqueue: OPFS bytes → SeaweedFS via pre-signed URLs, metadata via PowerSync upload / API POST.
-- Album rows (name, notes) travel through the `global_albums` PowerSync stream, so notes written offline are available on every device of the organisation.
-- Dashboard and Finish Album show queue progress; retries automatic (TanStack Query retry + PowerSync retry/queue-depth).
+- Submits enqueue: OPFS bytes → SeaweedFS via pre-signed URLs (later task), metadata through the PGlite outbox and `POST /api/sync/mutations`.
+- Album rows (name, notes) arrive through the Electric `albums` shape, so notes written offline are available on every device of the organisation.
+- Dashboard and Finish Album show pending/error sync state; retries are automatic with exponential backoff.
 - Tombstone deletes propagate so other clients converge.
 - Every async operation exposes loading / error / success / offline states.
 

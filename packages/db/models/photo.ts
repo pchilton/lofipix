@@ -1,11 +1,14 @@
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   check,
+  foreignKey,
   index,
   integer,
   pgTable,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
@@ -13,6 +16,7 @@ import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
 import { v7 as uuidv7 } from 'uuid';
 
+import { authOrganization } from '../external/auth-tables';
 import { albums } from './album';
 
 export const photos = pgTable(
@@ -21,9 +25,10 @@ export const photos = pgTable(
     id: uuid('id')
       .primaryKey()
       .$defaultFn(() => uuidv7()),
-    albumId: uuid('album_id')
+    organizationId: text('organization_id')
       .notNull()
-      .references(() => albums.id, { onDelete: 'cascade' }),
+      .references(() => authOrganization.id, { onDelete: 'cascade' }),
+    albumId: uuid('album_id').notNull(),
     position: integer('position').notNull(),
     imageWidth: integer('image_width').notNull(),
     imageHeight: integer('image_height').notNull(),
@@ -31,12 +36,20 @@ export const photos = pgTable(
     imageSize: integer('image_size').notNull(),
     capturedAt: timestamp('captured_at', { withTimezone: true }).notNull(),
     imageChecksum: text('image_checksum'),
+    version: bigint('version', { mode: 'number' }).notNull().default(1),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
+    foreignKey({
+      columns: [table.albumId, table.organizationId],
+      foreignColumns: [albums.id, albums.organizationId],
+      name: 'photos_album_organization_fk',
+    }).onDelete('cascade'),
     index('photos_album_id_idx').on(table.albumId),
+    index('photos_organization_id_idx').on(table.organizationId),
+    unique('photos_id_organization_unique').on(table.id, table.organizationId),
     uniqueIndex('photos_album_id_position_unique')
       .on(table.albumId, table.position)
       .where(sql`${table.deletedAt} is null`),
@@ -45,6 +58,7 @@ export const photos = pgTable(
     check('photos_image_height_positive', sql`${table.imageHeight} > 0`),
     check('photos_image_quality_range', sql`${table.imageQuality} between 1 and 100`),
     check('photos_image_size_non_negative', sql`${table.imageSize} >= 0`),
+    check('photos_version_positive', sql`${table.version} > 0`),
   ],
 );
 

@@ -6,7 +6,7 @@ nginx provides the reverse proxy for the API server and storage.
 
 - Ensure that the API server is running
 - Ensure that SeaweedFS has been configured
-- Ensure that PowerSync is running
+- Ensure that ElectricSQL is running (loopback only; the API proxies shape requests)
 
 ## Configuration
 
@@ -27,6 +27,19 @@ server {
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
         proxy_cache_bypass $http_upgrade;
+    }
+
+    # Route 1a: Electric shape streams. SSE and long-poll responses must not be
+    # buffered, or the PWA never receives live updates.
+    location /api/sync/shapes/ {
+        proxy_pass http://127.0.0.1:5634;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
     }
 
     # Route 2: Intercept and pass bucket requests through to SeaweedFS S3 API
@@ -50,19 +63,7 @@ server {
         client_max_body_size 500M;
     }
 
-    # Route 3: Intercept PowerSync requests and proxy to self-hosted PowerSync Service (Docker)
-    location /powersync/ {
-        # Trailing slash strips the /powersync/ prefix: /powersync/health -> /health
-        proxy_pass http://127.0.0.1:5636/;
-
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-    }
+    # ElectricSQL is not exposed publicly. It listens on loopback :5637 and is
+    # reached only by the API shape proxy.
 }
 ```

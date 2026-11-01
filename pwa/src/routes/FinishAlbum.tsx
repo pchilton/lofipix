@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { deletePhoto } from '../lib/domain/photos';
 import { touchAlbum, updateAlbumNotes } from '../lib/domain/albums';
 import { errorText } from '../lib/form';
-import { pendingIds } from '../lib/powersync/status';
+import { pendingIds } from '../lib/outbox';
 import { useLiveAlbums, useLivePhotos } from '../lib/queries';
 import ConfirmButton from '../components/confirm-button';
 import PhotoThumb from '../components/photo-thumb';
@@ -21,7 +21,7 @@ export default function FinishAlbum() {
   const photos = useLivePhotos();
   const album = () => albums().find((candidate) => candidate.id === params().albumId);
   const albumPhotos = createMemo(() =>
-    photos().filter((photo) => photo.album_id === params().albumId && photo.deleted_at === null),
+    photos().filter((photo) => photo.albumId === params().albumId && photo.deletedAt === null),
   );
   const [error, setError] = createSignal<string | null>(null);
 

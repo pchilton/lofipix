@@ -8,13 +8,14 @@ export default defineConfig({
     format: "es",
   },
   optimizeDeps: {
-    exclude: ["@powersync/web"],
+    exclude: ["@electric-sql/pglite"],
   },
   plugins: [
     iconsPlugin(),
     solid(),
     VitePWA({
-      registerType: "autoUpdate",
+      registerType: "prompt",
+      injectRegister: false,
       includeAssets: ["favicon.svg"],
       manifest: {
         name: "lofipix",
@@ -45,13 +46,16 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,png,svg,webmanifest,wasm}"],
-        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        globPatterns: ["**/*.{js,css,html,png,svg,webmanifest,wasm,tar.gz}"],
+        maximumFileSizeToCacheInBytes: 20 * 1024 * 1024,
         navigateFallback: "index.html",
+        navigateFallbackDenylist: [/^\/api\//],
+        skipWaiting: false,
+        clientsClaim: false,
       },
       devOptions: {
-        enabled: true // Ensures service workers test cleanly inside the local container
-      }
+        enabled: true, // Ensures service workers test cleanly inside the local container
+      },
     }),
   ],
   server: {

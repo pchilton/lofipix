@@ -1,48 +1,65 @@
 import { v7 as uuidv7 } from 'uuid';
-import { photosCollection, persistWrite } from '../powersync/collections';
+import { getAlbumsCollection, getPhotosCollection } from '../db/collections';
+import { persistWrite } from '../db/persist';
 import { captureFrame, PHOTO_IMAGE_QUALITY } from '../photo-capture';
 import { savePhotoBytes } from '../photos-storage';
 
 export function nextPosition(albumId: string): number {
   let max = 0;
-  for (const photo of photosCollection.toArray) {
-    if (photo.album_id === albumId && photo.deleted_at === null && (photo.position ?? 0) > max) {
+  for (const photo of getPhotosCollection().toArray) {
+    if (
+      photo.albumId === albumId &&
+      photo.deletedAt === null &&
+      (photo.position ?? 0) > max
+    ) {
       max = photo.position ?? 0;
     }
   }
   return max + 1;
 }
 
-export async function capturePhoto(albumId: string, video: HTMLVideoElement): Promise<string> {
+export async function capturePhoto(
+  albumId: string,
+  video: HTMLVideoElement,
+): Promise<string> {
+  const album = getAlbumsCollection().get(albumId);
+  if (!album) {
+    throw new Error('The album is not available on this device.');
+  }
+
   const frame = await captureFrame(video);
   const id = uuidv7();
   const position = nextPosition(albumId);
   await savePhotoBytes(id, frame.blob);
 
   const now = new Date();
-  const transaction = photosCollection.insert({
+  const transaction = getPhotosCollection().insert({
     id,
-    album_id: albumId,
+    organizationId: album.organizationId,
+    albumId,
     position,
-    image_width: frame.width,
-    image_height: frame.height,
-    image_quality: PHOTO_IMAGE_QUALITY,
-    image_size: frame.blob.size,
-    captured_at: now.toISOString(),
-    image_checksum: frame.checksum,
-    deleted_at: null,
-    created_at: now.toISOString(),
-    updated_at: now.toISOString(),
+    imageWidth: frame.width,
+    imageHeight: frame.height,
+    imageQuality: PHOTO_IMAGE_QUALITY,
+    imageSize: frame.blob.size,
+    capturedAt: now,
+    imageChecksum: frame.checksum,
+    version: 0,
+    outboxNeeded: true,
+    deletedAt: null,
+    createdAt: now,
+    updatedAt: now,
   });
   await persistWrite(transaction);
   return id;
 }
 
 export async function deletePhoto(photoId: string): Promise<void> {
-  const transaction = photosCollection.update(photoId, (draft) => {
-    const now = new Date().toISOString();
-    draft.deleted_at = now;
-    draft.updated_at = now;
+  const now = new Date();
+  const transaction = getPhotosCollection().update(photoId, (draft) => {
+    draft.deletedAt = now;
+    draft.outboxNeeded = true;
+    draft.updatedAt = now;
   });
   await persistWrite(transaction);
 }

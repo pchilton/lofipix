@@ -1,34 +1,46 @@
 import { normalizeNotes } from '@lofipix/db/schema';
 import { v7 as uuidv7 } from 'uuid';
-import { albumsCollection, persistWrite } from '../powersync/collections';
+import { getAlbumsCollection } from '../db/collections';
+import { persistWrite } from '../db/persist';
 
-export async function createAlbum(organizationId: string, name: string, notes: string): Promise<string> {
+export async function createAlbum(
+  organizationId: string,
+  name: string,
+  notes: string,
+): Promise<string> {
   const id = uuidv7();
   const now = new Date();
-  const transaction = albumsCollection.insert({
+  const transaction = getAlbumsCollection().insert({
     id,
-    organization_id: organizationId,
+    organizationId,
     name: name.trim(),
     notes: normalizeNotes(notes),
-    deleted_at: null,
-    created_at: now.toISOString(),
-    updated_at: now.toISOString(),
+    version: 0,
+    outboxNeeded: true,
+    deletedAt: null,
+    createdAt: now,
+    updatedAt: now,
   });
   await persistWrite(transaction);
   return id;
 }
 
-export async function updateAlbumNotes(albumId: string, notes: string): Promise<void> {
-  const transaction = albumsCollection.update(albumId, (draft) => {
+export async function updateAlbumNotes(
+  albumId: string,
+  notes: string,
+): Promise<void> {
+  const transaction = getAlbumsCollection().update(albumId, (draft) => {
     draft.notes = normalizeNotes(notes);
-    draft.updated_at = new Date().toISOString();
+    draft.outboxNeeded = true;
+    draft.updatedAt = new Date();
   });
   await persistWrite(transaction);
 }
 
 export async function touchAlbum(albumId: string): Promise<void> {
-  const transaction = albumsCollection.update(albumId, (draft) => {
-    draft.updated_at = new Date().toISOString();
+  const transaction = getAlbumsCollection().update(albumId, (draft) => {
+    draft.outboxNeeded = true;
+    draft.updatedAt = new Date();
   });
   await persistWrite(transaction);
 }

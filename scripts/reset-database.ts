@@ -14,7 +14,6 @@ const EXPECTED_AUTH_TABLES = [
   'organization',
   'member',
   'invitation',
-  'jwks',
 ];
 
 const FORBIDDEN_PUBLIC_TABLES = [
@@ -25,7 +24,6 @@ const FORBIDDEN_PUBLIC_TABLES = [
   'organization',
   'member',
   'invitation',
-  'jwks',
 ];
 
 async function resetSchemas(client: postgres.Sql): Promise<void> {
@@ -92,6 +90,7 @@ const EXPECTED_PHOTO_CHECKS = [
   'photos_image_height_positive',
   'photos_image_quality_range',
   'photos_image_size_non_negative',
+  'photos_version_positive',
 ];
 
 async function verify(client: postgres.Sql): Promise<void> {
@@ -136,6 +135,9 @@ async function verify(client: postgres.Sql): Promise<void> {
   if (!albumColumns.some((column) => column.column_name === 'deleted_at')) {
     throw new Error('public.albums is missing the deleted_at tombstone column');
   }
+  if (!albumColumns.some((column) => column.column_name === 'version')) {
+    throw new Error('public.albums is missing the version column');
+  }
 
   if (!publicTables.includes('photos')) {
     throw new Error('public schema missing photos table');
@@ -153,13 +155,24 @@ async function verify(client: postgres.Sql): Promise<void> {
     select conname, pg_get_constraintdef(oid) as definition from pg_constraint
     where conrelid = 'public.photos'::regclass and contype = 'f'
   `;
-  const albumForeignKey = photoForeignKeys.find((fk) =>
-    /REFERENCES (public\.)?albums\(id\)/.test(fk.definition),
+  const albumForeignKey = photoForeignKeys.find(
+    (fk) =>
+      /REFERENCES (public\.)?albums\(id,\s*organization_id\)/.test(fk.definition) &&
+      /FOREIGN KEY \(album_id,\s*organization_id\)/.test(fk.definition),
   );
   if (!albumForeignKey) {
     throw new Error(
-      `public.photos is missing the foreign key to public.albums(id): ${JSON.stringify(photoForeignKeys)}`,
+      `public.photos is missing the composite foreign key to public.albums(id, organization_id): ${JSON.stringify(photoForeignKeys)}`,
     );
+  }
+  const photoColumns = await client<ColumnRow[]>`
+    select column_name from information_schema.columns
+    where table_schema = 'public' and table_name = 'photos'
+  `;
+  for (const column of ['organization_id', 'version']) {
+    if (!photoColumns.some((item) => item.column_name === column)) {
+      throw new Error(`public.photos is missing the ${column} column`);
+    }
   }
 
   const photoIndexes = await client<IndexRow[]>`
@@ -203,6 +216,15 @@ async function verify(client: postgres.Sql): Promise<void> {
       `public.storage_providers is missing the foreign key to auth.organization(id): ${JSON.stringify(providerForeignKeys)}`,
     );
   }
+  const providerColumns = await client<ColumnRow[]>`
+    select column_name from information_schema.columns
+    where table_schema = 'public' and table_name = 'storage_providers'
+  `;
+  for (const column of ['version', 'encrypted_data']) {
+    if (!providerColumns.some((item) => item.column_name === column)) {
+      throw new Error(`public.storage_providers is missing the ${column} column`);
+    }
+  }
 
   const providerIndexes = await client<IndexRow[]>`
     select indexname, indexdef from pg_indexes
@@ -230,6 +252,7 @@ async function verify(client: postgres.Sql): Promise<void> {
     'storage_providers_config_object',
     'storage_providers_encrypted_data_object',
     'storage_providers_opfs_platform',
+    'storage_providers_version_positive',
   ];
   const missingProviderChecks = EXPECTED_PROVIDER_CHECKS.filter(
     (name) => !providerChecks.some((check) => check.conname === name),
@@ -244,21 +267,34 @@ async function verify(client: postgres.Sql): Promise<void> {
     select conname, pg_get_constraintdef(oid) as definition from pg_constraint
     where conrelid = 'public.photo_locations'::regclass and contype = 'f'
   `;
-  const locationPhotoForeignKey = locationForeignKeys.find((fk) =>
-    /REFERENCES (public\.)?photos\(id\)/.test(fk.definition),
+  const locationPhotoForeignKey = locationForeignKeys.find(
+    (fk) =>
+      /REFERENCES (public\.)?photos\(id,\s*organization_id\)/.test(fk.definition) &&
+      /FOREIGN KEY \(photo_id,\s*organization_id\)/.test(fk.definition),
   );
-  const locationProviderForeignKey = locationForeignKeys.find((fk) =>
-    /REFERENCES (public\.)?storage_providers\(id\)/.test(fk.definition),
+  const locationProviderForeignKey = locationForeignKeys.find(
+    (fk) =>
+      /REFERENCES (public\.)?storage_providers\(id,\s*organization_id\)/.test(fk.definition) &&
+      /FOREIGN KEY \(storage_provider_id,\s*organization_id\)/.test(fk.definition),
   );
   if (!locationPhotoForeignKey) {
     throw new Error(
-      `public.photo_locations is missing the foreign key to public.photos(id): ${JSON.stringify(locationForeignKeys)}`,
+      `public.photo_locations is missing the composite foreign key to public.photos(id, organization_id): ${JSON.stringify(locationForeignKeys)}`,
     );
   }
   if (!locationProviderForeignKey) {
     throw new Error(
-      `public.photo_locations is missing the foreign key to public.storage_providers(id): ${JSON.stringify(locationForeignKeys)}`,
+      `public.photo_locations is missing the composite foreign key to public.storage_providers(id, organization_id): ${JSON.stringify(locationForeignKeys)}`,
     );
+  }
+  const locationColumns = await client<ColumnRow[]>`
+    select column_name from information_schema.columns
+    where table_schema = 'public' and table_name = 'photo_locations'
+  `;
+  for (const column of ['organization_id', 'version']) {
+    if (!locationColumns.some((item) => item.column_name === column)) {
+      throw new Error(`public.photo_locations is missing the ${column} column`);
+    }
   }
 
   const locationIndexes = await client<IndexRow[]>`
@@ -292,7 +328,10 @@ async function verify(client: postgres.Sql): Promise<void> {
     select conname, pg_get_constraintdef(oid) as definition from pg_constraint
     where conrelid = 'public.photo_locations'::regclass and contype = 'c'
   `;
-  const EXPECTED_LOCATION_CHECKS = ['photo_locations_object_key_non_empty'];
+  const EXPECTED_LOCATION_CHECKS = [
+    'photo_locations_object_key_non_empty',
+    'photo_locations_version_positive',
+  ];
   const missingLocationChecks = EXPECTED_LOCATION_CHECKS.filter(
     (name) => !locationChecks.some((check) => check.conname === name),
   );
@@ -300,6 +339,10 @@ async function verify(client: postgres.Sql): Promise<void> {
     throw new Error(
       `public.photo_locations is missing check constraints: ${missingLocationChecks.join(', ')} (found: ${locationChecks.map((c) => c.conname).join(', ')})`,
     );
+  }
+
+  if (!publicTables.includes('sync_mutations')) {
+    throw new Error('public schema missing sync_mutations table');
   }
 
   console.log(`auth tables: ${authTables.join(', ')}`);

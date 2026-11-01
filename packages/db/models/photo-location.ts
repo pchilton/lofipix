@@ -1,6 +1,8 @@
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   check,
+  foreignKey,
   index,
   pgTable,
   text,
@@ -11,6 +13,7 @@ import {
 import { z } from 'zod';
 import { v7 as uuidv7 } from 'uuid';
 
+import { authOrganization } from '../external/auth-tables';
 import { photos } from './photo';
 import { storageProviders } from './storage-provider';
 
@@ -20,13 +23,13 @@ export const photoLocations = pgTable(
     id: uuid('id')
       .primaryKey()
       .$defaultFn(() => uuidv7()),
-    photoId: uuid('photo_id')
+    organizationId: text('organization_id')
       .notNull()
-      .references(() => photos.id, { onDelete: 'cascade' }),
-    storageProviderId: uuid('storage_provider_id')
-      .notNull()
-      .references(() => storageProviders.id, { onDelete: 'cascade' }),
+      .references(() => authOrganization.id, { onDelete: 'cascade' }),
+    photoId: uuid('photo_id').notNull(),
+    storageProviderId: uuid('storage_provider_id').notNull(),
     objectKey: text('object_key').notNull(),
+    version: bigint('version', { mode: 'number' }).notNull().default(1),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
@@ -36,6 +39,16 @@ export const photoLocations = pgTable(
       .defaultNow(),
   },
   (table) => [
+    foreignKey({
+      columns: [table.photoId, table.organizationId],
+      foreignColumns: [photos.id, photos.organizationId],
+      name: 'photo_locations_photo_organization_fk',
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.storageProviderId, table.organizationId],
+      foreignColumns: [storageProviders.id, storageProviders.organizationId],
+      name: 'photo_locations_provider_organization_fk',
+    }).onDelete('cascade'),
     check(
       'photo_locations_object_key_non_empty',
       sql`length(btrim(${table.objectKey})) > 0`,
@@ -45,14 +58,18 @@ export const photoLocations = pgTable(
       .where(sql`${table.deletedAt} IS NULL`),
     index('photo_locations_storage_provider_id_idx').on(table.storageProviderId),
     index('photo_locations_photo_id_idx').on(table.photoId),
+    index('photo_locations_organization_id_idx').on(table.organizationId),
+    check('photo_locations_version_positive', sql`${table.version} > 0`),
   ],
 );
 
 export const photoLocationSelectSchema = z.object({
   id: z.string().uuid(),
+  organizationId: z.string(),
   photoId: z.string().uuid(),
   storageProviderId: z.string().uuid(),
   objectKey: z.string().min(1),
+  version: z.number().int().positive(),
   deletedAt: z.string().datetime().nullable().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),

@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { createAlbum } from '../lib/domain/albums';
 import { errorText } from '../lib/form';
 import { useLiveAlbums, useLivePhotos } from '../lib/queries';
-import { pendingIds, lastUploadError, syncStatus } from '../lib/powersync/status';
+import { lastOutboxError, pendingIds, syncLabel } from '../lib/outbox';
 import { session, signOut, type AppSession } from '../lib/session';
 import PhotoThumb from '../components/photo-thumb';
 import SyncChip from '../components/sync-chip';
@@ -30,11 +30,11 @@ export default function Dashboard() {
   const [submitError, setSubmitError] = createSignal<string | null>(null);
 
   const photosByAlbum = createMemo(() => {
-    const grouped = new Map<string, { id: string; deleted_at: string | null }[]>();
+    const grouped = new Map<string, { id: string; deletedAt: Date | null }[]>();
     for (const photo of photos()) {
-      const list = grouped.get(photo.album_id) ?? [];
+      const list = grouped.get(photo.albumId) ?? [];
       list.push(photo);
-      grouped.set(photo.album_id, list);
+      grouped.set(photo.albumId, list);
     }
     return grouped;
   });
@@ -62,29 +62,20 @@ export default function Dashboard() {
     return albums().find((album) => normalizedName(album.name) === candidate);
   });
 
-  const status = () => {
-    const current = syncStatus();
-    if (!navigator.onLine) return 'Offline';
-    if (!current) return 'Starting sync';
-    if (current.dataFlowStatus?.uploading) return 'Uploading';
-    if (current.connected) return 'Connected';
-    return 'Waiting for connection';
-  };
-
   return (
     <main class="page">
       <header class="page-header">
         <div>
           <h1>Albums</h1>
-          <p class="muted">{status()}</p>
+          <p class="muted">{syncLabel()}</p>
         </div>
         <button type="button" onClick={() => void signOut().then(() => navigate({ to: '/' }))}>
           Sign out
         </button>
       </header>
 
-      <Show when={lastUploadError()}>
-        {(message) => <p class="error" role="alert">Upload rejected: {message()}</p>}
+      <Show when={lastOutboxError()}>
+        {(message) => <p class="error" role="alert">Sync error: {message()}</p>}
       </Show>
 
       <section class="card">
@@ -161,7 +152,7 @@ export default function Dashboard() {
           <ul class="album-list">
             <For each={albums()}>
               {(album) => {
-                const albumPhotos = () => (photosByAlbum().get(album.id) ?? []).filter((photo) => photo.deleted_at == null);
+                const albumPhotos = () => (photosByAlbum().get(album.id) ?? []).filter((photo) => photo.deletedAt == null);
                 return (
                   <li class="card album-card">
                     <div class="album-card-header">

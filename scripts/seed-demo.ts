@@ -112,6 +112,7 @@ async function seedAlbum(organizationId: string, album: SeedAlbum): Promise<void
   await db.insert(photos).values(
     Array.from({ length: album.photoCount }, (_, index) => ({
       id: uuidv7(),
+      organizationId,
       albumId,
       position: index + 1,
       imageWidth: 1280,

@@ -46,7 +46,7 @@ graph TD
     %% Client Tier
     subgraph ClientInterfaces [Client Interfaces]
         Web[Website<br>SolidJS / Static Export<br>No local storage]
-        PWA[PWA Web App<br>SolidJS / Offline-first<br>PowerSync + OPFS]
+        PWA[PWA Web App<br>SolidJS / Offline-first<br>PGlite + ElectricSQL + OPFS]
     end
 
     %% Network Entry
@@ -59,7 +59,7 @@ graph TD
     subgraph CoreBackend [Core Backend Engine]
         API[Central API Hub<br>Hono / Bun<br>Source of Truth]
         DB[(PostgreSQL Database<br>Drizzle ORM<br>Source of Truth)]
-        Sync[PowerSync Service<br>Postgres-to-SQLite Sync]
+        Sync[ElectricSQL<br>PostgreSQL shape streams]
         Queue[pgmq Background Jobs<br>Postgres Queue]
     end
 
@@ -98,22 +98,22 @@ graph TD
 
 | Path | Description | Technology |
 | --- | --- | --- |
-| `api/` | Central API, source of truth | Hono + Bun + Drizzle ORM + PostgreSQL + PowerSync Service + pgmq |
+| `api/` | Central API, source of truth | Hono + Bun + Drizzle ORM + PostgreSQL + ElectricSQL proxy + pgmq |
 | `packages/db/` | Database schema (Drizzle `push`), shared Zod models and Better Auth config | TypeScript + Drizzle ORM + PostgreSQL + Better Auth (auth schema) |
 | `packages/ui/` | Shared TarkUI components (Ark UI + Tailwind CSS v4), Iconify icons (unplugin-icons), Storybook component isolation, Vitest story tests | SolidJS + Ark UI + Tailwind CSS v4 + unplugin-icons + Storybook + Vitest, Bun |
-| `docs/` | Architecture and operations documentation | Markdown (see `ARCHITECTURE.md`, `AUTHENTICATION.md`, `PHOTOS.md`, `PHOTO_LOCATIONS.md`, `TARKUI.md`, `ICONS.md`, `UPTRACE.md`) |
-| `pwa/` | Progressive Web Application, offline-first | SolidJS + TanStack Router (Solid) + Vite + VitePWA + PowerSync Web SDK (OPFS-backed SQLite) + TanStack DB + TanStack Query, Bun |
-| `scripts/` | Operational scripts (incl. database reset, PowerSync container start and demo seeding) | TypeScript + Bun (workspace package) |
+| `docs/` | Architecture and operations documentation | Markdown (see `ARCHITECTURE.md`, `AUTHENTICATION.md`, `ELECTRICSQL.md`, `PHOTOS.md`, `PHOTO_LOCATIONS.md`, `TARKUI.md`, `ICONS.md`, `UPTRACE.md`) |
+| `pwa/` | Progressive Web Application, offline-first | SolidJS + TanStack Router (Solid) + Vite + VitePWA + PGlite (IndexedDB) + TanStack DB + ElectricSQL shape streams + TanStack Query, Bun |
+| `scripts/` | Operational scripts (incl. database reset, ElectricSQL container start and demo seeding) | TypeScript + Bun (workspace package) |
 | `workers/` | CloudFlare Workers | JavaScript |
-| `www/` | Website (plain static site, no PWA, no PowerSync) | SolidJS + TanStack Router (Solid) + Vite, static export, Bun + Ark UI + Tailwind CSS + TanStack Query |
+| `www/` | Website (plain static site, no PWA, no ElectricSQL sync) | SolidJS + TanStack Router (Solid) + Vite, static export, Bun + Ark UI + Tailwind CSS + TanStack Query |
 
 ## General technologies
 
 - **Frontend**: SolidJS (declarative components), Tailwind CSS + Ark UI (`@ark-ui/solid`, "Tark UI"), TanStack Router (Solid), TanStack Query (data fetching + caching with automatic retry), TanStack DB (reactive UI collections over the PWA's local store), TanStack Form + Zod, Solid signals/stores for client state, Solid-native transitions + CSS for animation
-- **Website**: SolidJS + TanStack Router, static export, TanStack Query, no PowerSync and no local persistence
-- **PWA client storage**: OPFS for local binary/image files, OPFS-backed SQLite via PowerSync Web SDK
-- **Sync**: PowerSync for offline-first data synchronization (PowerSync Service: PostgreSQL-to-SQLite; PowerSync Web SDK on client)
-- **Backend**: Bun, Hono (central API, source of truth), Drizzle ORM, PostgreSQL (source of truth), PowerSync Service, pgmq for background jobs
+- **Website**: SolidJS + TanStack Router, static export, TanStack Query, no ElectricSQL sync and no local persistence
+- **PWA client storage**: PGlite (IndexedDB VFS) for relational data, OPFS for local binary/image files
+- **Sync**: ElectricSQL shape streams through an authenticated API proxy; local PGlite outbox with version checks and idempotent mutations
+- **Backend**: Bun, Hono (central API, source of truth), Drizzle ORM, PostgreSQL (source of truth), ElectricSQL, pgmq for background jobs
 - **Authorization**: via the Better Auth organisation plugin (see `docs/AUTHENTICATION.md`)
 - **Package manager**: Bun (`bun install`, `bun.lock`)
 - **Shared**: TypeScript (strict, no `any` in domain models), Zod (every API response and database record has a schema), Shared Models, typed API modules (no direct `fetch()` calls in components)

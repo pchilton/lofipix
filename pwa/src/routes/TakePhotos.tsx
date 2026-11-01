@@ -25,7 +25,7 @@ export default function TakePhotos() {
   const album = () => albums().find((candidate) => candidate.id === params().albumId);
   const albumPhotos = createMemo(() =>
     photos()
-      .filter((photo) => photo.album_id === params().albumId)
+      .filter((photo) => photo.albumId === params().albumId)
       .sort((a, b) => b.position - a.position),
   );
 

@@ -1,23 +1,42 @@
-import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import {
+  bigint,
+  check,
+  index,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
 import { v7 as uuidv7 } from 'uuid';
 
 import { authOrganization } from '../external/auth-tables';
 
-export const albums = pgTable('albums', {
-  id: uuid('id')
-    .primaryKey()
-    .$defaultFn(() => uuidv7()),
-  organizationId: text('organization_id')
-    .notNull()
-    .references(() => authOrganization.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  notes: text('notes'),
-  deletedAt: timestamp('deleted_at', { withTimezone: true }),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-});
+export const albums = pgTable(
+  'albums',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .$defaultFn(() => uuidv7()),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => authOrganization.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    notes: text('notes'),
+    version: bigint('version', { mode: 'number' }).notNull().default(1),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique('albums_id_organization_unique').on(table.id, table.organizationId),
+    index('albums_organization_id_idx').on(table.organizationId),
+    check('albums_version_positive', sql`${table.version} > 0`),
+  ],
+);
 
 export const normalizeNotes = (value: string): string | null => {
   const normalized = value

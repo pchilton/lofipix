@@ -38,7 +38,6 @@ the session available across all `*.lofipix.app` subdomains.
 | `magicLink` | — (uses `verification`) | Passwordless sign-in via emailed link. |
 | `emailOTP` | — (uses `verification`) | One-time codes for email verification / login. |
 | `genericOAuth` | — (uses `account`) | OAuth2 integrations (e.g. Xero: `offline_access`, token refresh). |
-| `jwt` | `jwks` | Key store for issuing/verifying JWTs. |
 
 ## Sync process (two steps, strict split)
 

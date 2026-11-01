@@ -48,7 +48,7 @@ Locations to service via nginx reverse proxy:
 
 - `/storage-oceania-lofipix/` - SeaweedFS S3 API, using path-based bucket routing
 - `/api/` - Standard API queries via Hono
-- `/powersync/` - Real-time data sync via PowerSync
+- `/api/sync/shapes/` - ElectricSQL shape streams (proxied by the API; Electric itself is loopback-only)
 
 ## API deployment (oceania)
 
@@ -148,7 +148,7 @@ finds `/var/www/oceania.lofipix.app/.env.oceania` in the parent directory:
 ```sh
 cd /var/www/oceania.lofipix.app/scripts
 REGION=oceania bun run reset-database.ts
-REGION=oceania bun run powersync.ts
+REGION=oceania bun run electric.ts
 ```
 
 Adding a new `scripts/*.ts` file is enough; the workflow bundles and deploys it
@@ -166,7 +166,7 @@ Locations to services by locally running processes, with HMR
 - `192.168.1.15:5634/api/` - API queries via Hono and HMR
 - `192.168.1.15:5173/` - WWW on local port and HMR
 - `192.168.1.15:5174/` - PWA on local port and HMR
-- `192.168.1.15:5635/` - PowerSync on local port
+- `127.0.0.1:5637/` - ElectricSQL on local port (loopback only)
 
 Development commands (per app, with `REGION=cholet`):
 

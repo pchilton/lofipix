@@ -2,7 +2,7 @@
 
 Marketing + management surface. Desktop-first, always-online, thin client over
 the central Hono API. SolidJS + TanStack Router (static export), Ark UI + Tailwind
-("Tark UI"), TanStack Query, Better Auth client. No PWA, no PowerSync, no local persistence.
+("Tark UI"), TanStack Query, Better Auth client. No PWA, no ElectricSQL sync, no local persistence.
 
 ## User journey
 
@@ -16,7 +16,7 @@ happens in the PWA; the website is for review and administration.
 
 The website treats the central API as the source of truth. It holds no local
 queue and no optimistic offline state: every view reflects what the API returns
-via TanStack Query. The PWA behaves differently (PowerSync, device-first,
+via TanStack Query. The PWA behaves differently (ElectricSQL + PGlite, device-first,
 optimistic updates) — see `docs/WEBAPP.md`; do not carry PWA semantics into the
 website.
 

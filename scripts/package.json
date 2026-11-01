@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "powersync": "bun powersync.ts",
     "typecheck": "tsc --noEmit",
-    "seed": "bun seed-demo.ts"
+    "seed": "bun seed-demo.ts",
+    "electric": "bun electric.ts"
   },
   "dependencies": {
     "@lofipix/db": "workspace:*",

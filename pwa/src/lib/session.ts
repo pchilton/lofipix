@@ -1,10 +1,13 @@
 import { createSignal } from 'solid-js';
 import { z } from 'zod';
 import { authClient } from './auth-client';
-import { powerSyncConnector } from './powersync/connector';
-import { powerSyncDatabase } from './powersync/database';
-import { startStatusTracking } from './powersync/status';
-import { supportsPowerSyncContext } from './powersync/secure-context';
+import { clearLocalDatabase } from './db/client';
+import { initCollections, startCollectionSync } from './db/collections';
+import {
+  pendingTotal,
+  resetOutboxState,
+  startOutbox,
+} from './outbox';
 
 const CACHE_KEY = 'lofipix.session';
 const SYNC_USER_KEY = 'lofipix.sync-user';
@@ -22,9 +25,8 @@ const [currentSession, setCurrentSession] = createSignal<AppSession | null | und
 
 export const session = currentSession;
 
-let statusTracking = false;
-let connectedUserId: string | null = null;
 let loading: Promise<AppSession | null> | undefined;
+let syncStarted = false;
 
 function readCache(): AppSession | null {
   try {
@@ -74,7 +76,9 @@ export function loadSession(): Promise<AppSession | null> {
     loading = resolveSession().then(async (next) => {
       setCurrentSession(next);
       if (next) {
-        await startSync(next.userId);
+        void startSync(next.userId).catch((error) => {
+          console.error('Could not start sync:', error);
+        });
       }
       return next;
     });
@@ -88,42 +92,45 @@ export async function refreshSession(): Promise<AppSession | null> {
 }
 
 export async function startSync(userId: string): Promise<void> {
-  if (!supportsPowerSyncContext()) {
+  if (syncStarted) {
     return;
   }
-  if (!statusTracking) {
-    startStatusTracking();
-    statusTracking = true;
-  }
-  if (connectedUserId === userId) {
-    return;
-  }
-  if (connectedUserId) {
-    await powerSyncDatabase.disconnect();
-  }
+
   const previous = localStorage.getItem(SYNC_USER_KEY);
   if (previous && previous !== userId) {
-    await powerSyncDatabase.disconnectAndClear();
+    localStorage.setItem(SYNC_USER_KEY, userId);
+    await clearLocalDatabase();
+    resetOutboxState();
+    window.location.reload();
+    return;
   }
   localStorage.setItem(SYNC_USER_KEY, userId);
-  connectedUserId = userId;
-  try {
-    await powerSyncDatabase.connect(powerSyncConnector);
-  } catch {
-    connectedUserId = null;
-  }
+  syncStarted = true;
+
+  initCollections();
+  await startOutbox();
+  await startCollectionSync();
 }
 
 export async function signOut(): Promise<void> {
+  if (pendingTotal() > 0) {
+    const proceed = window.confirm(
+      'This device has changes that have not synced yet. Signing out will discard them. Continue?',
+    );
+    if (!proceed) {
+      return;
+    }
+  }
+
   try {
     await authClient.signOut();
   } finally {
     writeCache(null);
     localStorage.removeItem(SYNC_USER_KEY);
-    connectedUserId = null;
-    await powerSyncDatabase.disconnectAndClear();
-    loading = undefined;
+    await clearLocalDatabase();
+    resetOutboxState();
     setCurrentSession(null);
+    window.location.reload();
   }
 }
 

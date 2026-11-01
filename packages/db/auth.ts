@@ -1,7 +1,7 @@
 import '@lofipix/env';
 
 import { betterAuth } from 'better-auth';
-import { magicLink, emailOTP, genericOAuth, jwt, organization } from 'better-auth/plugins';
+import { magicLink, emailOTP, genericOAuth, organization } from 'better-auth/plugins';
 import { PostgresDialect } from 'kysely';
 import { Pool } from 'pg';
 
@@ -30,6 +30,7 @@ export const auth = betterAuth({
   trustedOrigins: [
     'http://192.168.1.15:5173',
     'http://192.168.1.15:5174',
+    'http://192.168.1.15:4173',
     'https://www.lofipix.app',
     'https://pwa.lofipix.app',
   ],
@@ -75,15 +76,6 @@ export const auth = betterAuth({
     }),
     genericOAuth({
       config: [],
-    }),
-    jwt({
-      jwt: {
-        audience: process.env.POWERSYNC_AUDIENCE,
-        definePayload: ({ session }) => ({
-          organization_id:
-            typeof session.activeOrganizationId === 'string' ? session.activeOrganizationId : null,
-        }),
-      },
     }),
   ],
 });

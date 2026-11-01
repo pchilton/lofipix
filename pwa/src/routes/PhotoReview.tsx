@@ -1,7 +1,7 @@
 import { createMemo, Show } from 'solid-js';
 import { Link, useNavigate, useParams } from '@tanstack/solid-router';
 import { deletePhoto } from '../lib/domain/photos';
-import { pendingIds } from '../lib/powersync/status';
+import { pendingIds } from '../lib/outbox';
 import { useLivePhotos } from '../lib/queries';
 import ConfirmButton from '../components/confirm-button';
 import PhotoThumb from '../components/photo-thumb';
@@ -12,7 +12,7 @@ export default function PhotoReview() {
   const navigate = useNavigate();
   const photos = useLivePhotos();
   const albumPhotos = createMemo(() =>
-    photos().filter((photo) => photo.album_id === params().albumId && photo.deleted_at === null),
+    photos().filter((photo) => photo.albumId === params().albumId && photo.deletedAt === null),
   );
   const index = () => albumPhotos().findIndex((photo) => photo.id === params().photoId);
   const photo = () => (index() >= 0 ? albumPhotos()[index()] : undefined);
@@ -48,14 +48,14 @@ export default function PhotoReview() {
               <dd>#{current().position}</dd>
               <dt>Dimensions</dt>
               <dd>
-                {current().image_width} × {current().image_height}
+                {current().imageWidth} × {current().imageHeight}
               </dd>
               <dt>Size</dt>
-              <dd>{Math.round(current().image_size / 1024)} KB</dd>
+              <dd>{Math.round(current().imageSize / 1024)} KB</dd>
               <dt>Captured</dt>
-              <dd>{new Date(current().captured_at).toLocaleString()}</dd>
+              <dd>{current().capturedAt.toLocaleString()}</dd>
               <dt>Checksum</dt>
-              <dd class="mono">{current().image_checksum?.slice(0, 16) ?? '—'}…</dd>
+              <dd class="mono">{current().imageChecksum?.slice(0, 16) ?? '—'}…</dd>
             </dl>
 
             <nav class="pager">

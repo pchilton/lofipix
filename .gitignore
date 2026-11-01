@@ -85,5 +85,5 @@ mobile/ios/*.xcodeproj/xcuserdata/
 *.sqlite
 *.sqlite3
 
-# PowerSync worker assets copied from @powersync/web (see pwa/package.json "assets")
-pwa/public/@powersync/
+# Generated local PGlite schema snapshot (see pwa/scripts/make-snapshot.ts)
+pwa/public/pglite/

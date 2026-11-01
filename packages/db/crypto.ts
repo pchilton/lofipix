@@ -66,19 +66,3 @@ export function decryptCredential(value: string): string {
     'utf8',
   );
 }
-
-/**
- * Removes the `encrypted_data` key from a provider config object so it is safe
- * to expose to clients (public reads and PowerSync streams).
- */
-export function stripEncryptedData(config: unknown): unknown {
-  if (
-    typeof config !== 'object' ||
-    config === null ||
-    Array.isArray(config)
-  ) {
-    return config;
-  }
-  const { encrypted_data, ...rest } = config as Record<string, unknown>;
-  return rest;
-}

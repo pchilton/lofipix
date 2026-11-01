@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   check,
   index,
   jsonb,
@@ -7,6 +8,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
@@ -34,6 +36,8 @@ export const storageProviders = pgTable(
     label: text('label').notNull(),
     externalId: text('external_id').notNull(),
     config: jsonb('config').notNull().default(sql`'{}'::jsonb`),
+    encryptedData: jsonb('encrypted_data').notNull().default(sql`'{}'::jsonb`),
+    version: bigint('version', { mode: 'number' }).notNull().default(1),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
@@ -57,25 +61,25 @@ export const storageProviders = pgTable(
     ),
     check(
       'storage_providers_encrypted_data_object',
-      sql`NOT (${table.config} ? 'encrypted_data') OR jsonb_typeof(${table.config} -> 'encrypted_data') = 'object'`,
+      sql`jsonb_typeof(${table.encryptedData}) = 'object'`,
     ),
     check(
       'storage_providers_opfs_platform',
       sql`${table.providerType} <> 'opfs' OR (${table.config} ? 'platform' AND ${table.config} ->> 'platform' IN ('ios', 'android'))`,
     ),
+    unique('storage_providers_id_organization_unique').on(
+      table.id,
+      table.organizationId,
+    ),
     uniqueIndex('storage_providers_org_type_external_unique')
       .on(table.organizationId, table.providerType, table.externalId)
       .where(sql`${table.deletedAt} IS NULL`),
     index('storage_providers_organization_id_idx').on(table.organizationId),
+    check('storage_providers_version_positive', sql`${table.version} > 0`),
   ],
 );
 
-const providerConfig = z.object({}).catchall(z.any());
-
-const stripEncryptedData = (config: Record<string, unknown>): Record<string, unknown> => {
-  const { encrypted_data, ...rest } = config;
-  return rest;
-};
+const providerConfig = z.object({}).catchall(z.unknown());
 
 export const storageProviderSelectSchema = z.object({
   id: z.string().uuid(),
@@ -83,22 +87,15 @@ export const storageProviderSelectSchema = z.object({
   providerType: z.enum(providerTypeValues),
   label: z.string().min(1),
   externalId: z.string().min(1),
-  config: providerConfig.transform(stripEncryptedData),
+  config: providerConfig,
+  version: z.number().int().positive(),
   deletedAt: z.string().datetime().nullable().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
 
-export const storageProviderServerSchema = z.object({
-  id: z.string().uuid(),
-  organizationId: z.string(),
-  providerType: z.enum(providerTypeValues),
-  label: z.string().min(1),
-  externalId: z.string().min(1),
-  config: providerConfig,
-  deletedAt: z.string().datetime().nullable().optional(),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
+export const storageProviderServerSchema = storageProviderSelectSchema.extend({
+  encryptedData: providerConfig,
 });
 
 export const storageProviderInsertSchema = z.object({
@@ -106,7 +103,8 @@ export const storageProviderInsertSchema = z.object({
   providerType: z.enum(providerTypeValues),
   label: z.string().min(1),
   externalId: z.string().min(1),
-  config: providerConfig,
+  config: providerConfig.default({}),
+  encryptedData: providerConfig.default({}),
 });
 
 export type StorageProvider = z.infer<typeof storageProviderSelectSchema>;

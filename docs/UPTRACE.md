@@ -2,7 +2,7 @@
 
 Self-hosted observability for lofipix using Uptrace (OpenTelemetry backend: traces,
 metrics, logs). Run it locally via Docker; instrument the SolidJS PWA, the Website,
-Hono API, PostgreSQL, SeaweedFS, image sync pipeline, and PowerSync writes.
+Hono API, PostgreSQL, SeaweedFS, image sync pipeline, and PWA outbox sync writes.
 
 ## Self-hosted Docker setup (skeleton)
 
@@ -67,17 +67,17 @@ docker compose -f docker-compose.uptrace.yml up -d
 | PostgreSQL       | Database instrumentation                                               | Query duration, query text, errors                       |
 | SeaweedFS        | HTTP/S3 client instrumentation or custom spans                         | Upload/download duration, object key, byte size          |
 | Image Sync       | Custom span                                                            | Conversion duration, page number, output dimensions      |
-| PowerSync writes | Custom span or queue consumer span                                     | Accepted/rejected operations, retries, queue depth       |
+| Outbox sync      | Custom span in the PWA and API mutation handler                        | Accepted/rejected mutations, conflicts, retries, queue depth |
 ```
 
 Notes:
 
 - PWA spans come from an OpenTelemetry browser SDK (fetch/XHR + document-load
   auto-instrumentation plus manual spans for uploads and TanStack Query mutations).
-- Website spans use the same browser SDK (fetch/XHR + document-load) without PowerSync spans.
+- Website spans use the same browser SDK (fetch/XHR + document-load) without sync spans.
 - Hono spans wrap each request (route, validation via Zod, handler logic, response
   status) and propagate trace context to pgmq consumers and SeaweedFS calls.
 - PostgreSQL spans record query duration, sanitized query text, and errors.
 - Image Sync spans are emitted by the pgmq consumer doing conversion work.
-- PowerSync write spans track the upload pipeline: accepted/rejected operations,
-  retries, and queue depth.
+- Outbox sync spans track the mutation pipeline: applied/conflict/rejected
+  results, retries, and queue depth.
