@@ -581,7 +581,7 @@ Completed in this task:
 - `packages/db/schema.ts` — re-exports both new models.
 - `scripts/reset-database.ts` — verification asserts both tables, composite foreign keys, partial unique indexes and check constraints.
 - `scripts/electric.ts` — starts ElectricSQL; `api/src/sync-shapes.ts` defines the provider/location column projections.
-- Mobile SQLite collections and outbox support provider/location rows (prompt 0026).
+- Mobile SQLite tables and outbox support provider/location rows.
 - `.env.example` — adds `STORAGE_PROVIDER_CREDENTIALS_KEY` and the ElectricSQL variables.
 
 Deferred to later tasks:

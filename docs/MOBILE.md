@@ -1,17 +1,22 @@
 # Mobile app (`mobile/`) — Storyboard
 
-Offline-first capture app for iOS and Android. The native app replaces the
-SolidJS PWA and talks directly to the API; there is no web/PWA build.
+Offline-first capture app for iOS and Android. It talks directly to the API;
+there is no web/PWA build.
 
-Target stack: bare React Native (no Expo runtime), React Navigation
-native-stack, embedded SQLite via `@op-engineering/op-sqlite` + Drizzle,
-ElectricSQL shape streams through the API proxy, a SQLite outbox, Better Auth
-bearer tokens in `react-native-keychain`, and photo bytes in the app documents
-directory. `packages/ui` is web-only ShadCN; mobile uses React Native
-primitives with shared StyleSheet tokens.
+Stack: bare React Native CLI (no Expo runtime), React Navigation native-stack,
+embedded SQLite via `@op-engineering/op-sqlite` + Drizzle, ElectricSQL shape
+streams through the API proxy, a SQLite outbox, Better Auth bearer tokens in
+`react-native-keychain`, and photo bytes in the app documents directory.
+`packages/ui` is web-only ShadCN; mobile uses React Native primitives with
+shared StyleSheet tokens.
 
-> `pwa/` still contains the legacy SolidJS PWA until prompt 0026 performs the
-> rename and rewrite. This document describes the target native app.
+Native modules: `react-native-camera-kit` (capture), `@op-engineering/op-sqlite`,
+`react-native-file-access` (documents directory and native SHA-256),
+`react-native-keychain`, `react-native-svg`, `@bam.tech/react-native-image-resizer`,
+`@react-native-community/netinfo` and `@react-native-async-storage/async-storage`.
+`react-native-camera-kit` was chosen over VisionCamera because its bare-RN setup
+has no nitro-module peer requirements. SHA-256 uses the file-access native hash
+instead of `@noble/hashes`, so large photos are not base64-decoded in JS.
 
 ## Core loop
 
@@ -36,7 +41,7 @@ If there is no cached session, the app prompts to sign in.
 Authenticate before anything else. Sign-in works online; the session profile
 and bearer token persist so later launches work offline.
 
-- Fields: email, password (visibility toggle), Login button.
+- Fields: email, password, Sign in button.
 - Validation + auth errors inline; loading state on submit.
 - Success → Dashboard. Offline with no cached session → blocked with a
   "connect to sign in" state.
@@ -95,7 +100,7 @@ Review everything on the device before submitting.
 
 Full-size local image from the app documents directory.
 
-- Swipe/prev-next, delete with confirmation, back to Finish Album.
+- Previous/Next controls, delete with confirmation, back to Finish Album.
 - Other devices show a **Device-only photo** state when the bytes are absent.
 
 ## Local database
@@ -107,7 +112,8 @@ Full-size local image from the app documents directory.
   shape delivery order cannot fail a write.
 - `outbox` and `local_meta` are client-only tables.
 - Synced rows are a cache; the outbox is the only durable local work.
-- `LOCAL_SCHEMA_VERSION` drives a **cache rebuild**: when the version changes,
+- `bun run schema:generate` (from `mobile/`) produces the bundled DDL from the
+  Drizzle schema. `LOCAL_SCHEMA_VERSION` drives a **cache rebuild**: when the version changes,
   the app refuses to rebuild while offline or while the outbox has
   `pending`/`inflight`/`failed` mutations. Once the outbox is drained, the
   SQLite cache is recreated from bundled DDL and resynced. There are no
@@ -175,7 +181,7 @@ build time:
 - **Production:** API `https://oceania.lofipix.app/`, website
   `https://www.lofipix.app/`.
 
-There is no `pwa.lofipix.app`; the PWA is retired.
+The native app has no web build and does not use a PWA domain.
 
 ## Icons and UI
 
@@ -189,7 +195,8 @@ There is no `pwa.lofipix.app`; the PWA is retired.
 
 - Jest + React Native Testing Library for unit/component tests.
 - Maestro flows under `mobile/e2e/` for login, create album, capture, finish
-  and photo review.
-- Android/iOS store deployment options (EAS Build/Submit and Fastlane in GitHub
-  Actions) are documented in `docs/DEPLOYMENT.md`; this migration does not
-  publish or sign a release.
+  and photo review. Run `maestro test -e EMAIL=... -e PASSWORD=... e2e` against a
+  development build with the API reachable.
+- `mobile-ci.yml` runs typecheck, lint and Jest. Android/iOS store deployment
+  options (EAS Build/Submit and Fastlane in GitHub Actions) are documented in
+  `docs/DEPLOYMENT.md`; the repository does not sign or publish a release.

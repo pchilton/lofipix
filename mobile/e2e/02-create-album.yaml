@@ -1,0 +1,12 @@
+appId: app.lofipix.mobile
+---
+- launchApp
+- assertVisible:
+    id: dashboard-screen
+- tapOn:
+    id: album-name-input
+- inputText: "AB12 CDE"
+- tapOn:
+    id: start-album-button
+- assertVisible:
+    id: capture-screen

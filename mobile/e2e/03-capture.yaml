@@ -1,0 +1,13 @@
+appId: app.lofipix.mobile
+---
+- launchApp
+- assertVisible:
+    id: capture-screen
+- tapOn:
+    id: capture-button
+- assertVisible:
+    id: finish-album-button
+- tapOn:
+    id: finish-album-button
+- assertVisible:
+    id: finish-screen

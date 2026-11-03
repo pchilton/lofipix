@@ -25,8 +25,8 @@ by `cloudflare/wrangler-action`. Client-side routes must fall back to
 - `deploy-www.yml` runs `wrangler deploy`, which reads that config (name, asset
   directory, fallback).
 
-There is no PWA deployment: `pwa.lofipix.app` is retired when the native app
-replaces the PWA.
+The PWA and its former Cloudflare deployment have been removed; the native app
+does not use a web domain.
 
 ## Authentication
 
@@ -37,8 +37,6 @@ Authentication uses "Better Auth". The website uses HTTP-only cookie sessions is
 - `lofipix.app` - Redirect to www (Cloudflare Worker)
 - `www.lofipix.app` - Web App (Cloudflare Workers)
 - `edge.lofipix.app` - Edge functions (Cloudflare Worker)
-
-`pwa.lofipix.app` is retired; the native app does not use a web domain.
 
 ## Production VPS
 
@@ -159,7 +157,7 @@ on the next push.
 ## Mobile app deployment (iOS and Android)
 
 The mobile app is built with bare React Native. Two store pipelines are
-available; neither is implemented in the migration task.
+available; neither is configured in this repository yet.
 
 - **EAS Build/Submit** — Expo Application Services can build bare React Native
   projects without adopting the Expo runtime. `eas build --platform all` and
@@ -199,4 +197,4 @@ Development commands (per app, with `REGION=cholet`):
 
 - API: `REGION=cholet bun run --hot src/index.ts` (from `api/`)
 - WWW: `REGION=cholet bun run dev` (from `www/`)
-- Mobile: `bun run android` or `bun run ios` from `mobile/` once prompt 0026 lands
+- Mobile: `bun run android` or `bun run ios` from `mobile/`

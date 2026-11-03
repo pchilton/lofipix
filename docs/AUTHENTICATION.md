@@ -33,8 +33,8 @@ website and API share the session. In production
 the session available across all `*.lofipix.app` subdomains. Bearer sessions do
 not use cookies.
 
-The legacy PWA origins (port 5174 and `https://pwa.lofipix.app`) remain in the
-configuration until prompt 0026 removes the PWA.
+The retired PWA origins have been removed; only the website, preview and native
+scheme are trusted.
 
 ## Plugins and tables
 

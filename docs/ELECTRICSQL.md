@@ -117,8 +117,9 @@ every device. The mobile app filters `deleted_at is null` in reads.
 The mobile cache is schema-versioned, not migrated incrementally.
 
 - `LOCAL_SCHEMA_VERSION` lives in `mobile/src/lib/db/schema.ts`.
-- The SQLite DDL is generated from the Drizzle schema into a bundled SQL asset
-  at build time.
+- The SQLite DDL is generated from the Drizzle schema by
+  `cd mobile && bun run schema:generate` into `mobile/src/lib/db/ddl.ts`; a unit
+  test asserts every schema column appears in the DDL.
 - On first launch the app creates the cache from that asset.
 - When the stored version differs, the app checks the outbox. If the device is
   offline or the outbox has `pending`, `inflight` or `failed` mutations, the

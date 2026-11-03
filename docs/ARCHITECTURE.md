@@ -32,7 +32,7 @@ SolidJS PWA; there is no web build.
 - Design System: React Native primitives with `StyleSheet` and a shared token module for colour, spacing, radii and typography. `packages/ui` is web-only and is not imported.
 - Local Database: embedded SQLite via `@op-engineering/op-sqlite`, accessed with Drizzle ORM.
 - Sync Engine: ElectricSQL streams PostgreSQL table shapes through an authenticated API proxy. A custom writer applies shape messages to SQLite. A SQLite-backed outbox sends local mutations to `POST /api/sync/mutations` with version checks and server-side idempotency.
-- Non-synced State: TanStack Query (React) for auth, uploads, and non-synced API state, with automatic retry logic. No direct `fetch()` calls in components; use typed API modules.
+- Non-synced State: TanStack Query (React) for local SQLite query caching and non-synced API state, with automatic retry logic. Auth uses the Better Auth client. No direct `fetch()` calls in components; use typed API modules.
 - Forms: TanStack Form (React) + Zod.
 - Client State: React state and context for local UI state.
 - Device Storage: app documents directory for photo bytes; `react-native-keychain` for bearer tokens; AsyncStorage for the non-secret cached session profile.

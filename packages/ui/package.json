@@ -8,9 +8,7 @@
     ".": "./src/index.ts",
     "./styles": "./src/styles.css",
     "./icons/vite": "./src/icons/vite.ts",
-    "./icons/types": "./src/icons/types.d.ts",
-    "./icons/vite-solid": "./src/icons/vite-solid.ts",
-    "./icons/types/solid": "./src/icons/types-solid.d.ts"
+    "./icons/types": "./src/icons/types.d.ts"
   },
   "scripts": {
     "storybook": "storybook dev -p 6006",

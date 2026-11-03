@@ -23,10 +23,6 @@ Configured in `packages/ui` for both builds:
   imports.
 - ShadCN source uses `~icons/lucide/<name>`, not `lucide-react`, so there is one
   web icon pipeline.
-- **Legacy shim:** `@lofipix/ui/icons/vite-solid` and
-  `@lofipix/ui/icons/types/solid` keep the legacy SolidJS `pwa/` build working
-  until prompt 0026 replaces it. Do not use the shim in new code; it is removed
-  with the last Solid app.
 
 For a new React app:
 
@@ -63,10 +59,11 @@ React Native cannot render DOM `<svg>` elements, so the native app does not use
 `unplugin-icons`.
 
 - Icons come from the same `@iconify-json/*` packages.
-- A small `Icon` component renders bundled Iconify path data with
-  `react-native-svg`.
-- Only statically referenced icons are included; no dynamic
-  `~icons/${name}` lookups.
+- `mobile/scripts/generate-icons.ts` extracts only the icons named in its list
+  into `mobile/src/icons/registry.ts`; run `cd mobile && bun run icons:generate`
+  after changing the list. The generated registry is committed.
+- `mobile/src/icons/Icon.tsx` renders the registry through `react-native-svg`.
+- Only statically referenced icons are included; no dynamic lookups.
 - No runtime Iconify API calls: the app must work offline.
 
 ## Adding a collection
@@ -76,9 +73,11 @@ cd packages/ui
 bun add @iconify-json/<prefix>
 ```
 
-Then use `~icons/<prefix>/<name>` on web. The mobile registry is updated when
-prompt 0026 adds the native icon layer. The plugin resolves collections from
-`packages/ui`, so the web plugin configuration does not change.
+Then use `~icons/<prefix>/<name>` on web. For mobile, add the collection under
+`mobile/` (`bun add @iconify-json/<prefix> -d`), add the icon names to
+`mobile/scripts/generate-icons.ts`, and run `bun run icons:generate`. The plugin
+resolves web collections from `packages/ui`, so the web plugin configuration does
+not change.
 
 ## Rules
 

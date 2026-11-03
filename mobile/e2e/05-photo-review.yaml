@@ -1,0 +1,12 @@
+appId: app.lofipix.mobile
+---
+- launchApp
+- assertVisible:
+    id: finish-screen
+- tapOn:
+    id: photo-tile-1
+- assertVisible:
+    id: photo-review-screen
+- tapOn: "Back to album"
+- assertVisible:
+    id: finish-screen

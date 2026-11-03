@@ -11,11 +11,8 @@ const app = new Hono();
 
 const ALLOWED_ORIGINS = new Set([
   "http://192.168.1.15:5173",
-  "http://192.168.1.15:5174",
-  "http://192.168.1.15:5175",
   "http://192.168.1.15:4173",
   "https://www.lofipix.app",
-  "https://pwa.lofipix.app",
   "lofipix://",
 ]);
 

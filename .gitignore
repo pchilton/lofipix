@@ -87,6 +87,3 @@ mobile/ios/*.xcodeproj/xcuserdata/
 # Database
 *.sqlite
 *.sqlite3
-
-# Generated local PGlite schema snapshot (see pwa/scripts/make-snapshot.ts)
-pwa/public/pglite/

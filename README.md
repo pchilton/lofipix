@@ -12,10 +12,6 @@ These can then be attached to emails, where 10-20 photos will fit under 10MB.
 There is a public website detailing what LoFi Pix is, and administer organisations, users, albums and photos.
 The primary way of capturing photos is an offline-first, local-first native app for iOS and Android.
 
-> Migration in progress: `pwa/` is the legacy SolidJS PWA until prompt 0026 renames
-> it to `mobile/` and rewrites it as React Native. The target stack is documented
-> in `docs/ARCHITECTURE.md`.
-
 ## General mobile app behaviour
 
 - create an album. usually with a vehicle plate number
@@ -111,8 +107,7 @@ graph TD
 | `packages/db/` | Database schema (Drizzle `push`), shared Zod models and Better Auth config | TypeScript + Drizzle ORM + PostgreSQL + Better Auth (auth schema, cookie + bearer sessions) |
 | `packages/ui/` | Shared web components (ShadCN on Radix + Tailwind CSS v4), Iconify icons (unplugin-icons), Storybook component isolation, Vitest story tests | React + Radix + Tailwind CSS v4 + unplugin-icons + Storybook + Vitest, Bun |
 | `docs/` | Architecture and operations documentation | Markdown (see `ARCHITECTURE.md`, `AUTHENTICATION.md`, `ELECTRICSQL.md`, `MOBILE.md`, `PHOTOS.md`, `PHOTO_LOCATIONS.md`, `SHADCN.md`, `ICONS.md`, `UPTRACE.md`) |
-| `mobile/` | Native iOS/Android app, offline-first (created by prompt 0026; `pwa/` is the legacy path) | React Native (bare CLI) + React Navigation + SQLite (op-sqlite) + Drizzle + ElectricSQL + TanStack Query + TanStack Form, Bun |
-| `pwa/` | **Legacy** SolidJS PWA, replaced by `mobile/` in prompt 0026 | SolidJS + TanStack Router (Solid) + Vite + VitePWA + PGlite (IndexedDB) + TanStack DB + ElectricSQL shape streams + TanStack Query, Bun |
+| `mobile/` | Native iOS/Android app, offline-first, device-only photo bytes | React Native (bare CLI) + React Navigation + SQLite (op-sqlite) + Drizzle + ElectricSQL + TanStack Query + TanStack Form + Jest + Maestro, Bun |
 | `scripts/` | Operational scripts (incl. database reset, ElectricSQL container start and demo seeding) | TypeScript + Bun (workspace package) |
 | `workers/` | CloudFlare Workers | JavaScript |
 | `www/` | Website (plain static site, no ElectricSQL sync) | React + TanStack Router (React) + TanStack Query + TanStack Form + ShadCN (`@lofipix/ui`) + Vite, static export, Bun |
@@ -120,7 +115,7 @@ graph TD
 ## General technologies
 
 - **Website**: React + TanStack Router (React) + TanStack Query (data fetching + caching with automatic retry) + TanStack Form + Zod, ShadCN + Tailwind CSS v4 from `@lofipix/ui`, static export
-- **Mobile (target)**: bare React Native + React Navigation native-stack, embedded SQLite (`@op-engineering/op-sqlite`) + Drizzle, ElectricSQL shape streams through the API proxy, SQLite outbox, React state/context + StyleSheet design tokens
+- **Mobile**: bare React Native + React Navigation native-stack, embedded SQLite (`@op-engineering/op-sqlite`) + Drizzle, ElectricSQL shape streams through the API proxy, SQLite outbox, React state/context + StyleSheet design tokens
 - **Mobile auth**: Better Auth bearer tokens stored in `react-native-keychain`; website keeps Better Auth cookie sessions
 - **Mobile client storage**: SQLite for relational data, app documents directory for photo bytes
 - **Sync**: ElectricSQL shape streams through an authenticated API proxy; SQLite outbox with version checks and idempotent mutations
