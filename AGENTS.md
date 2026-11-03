@@ -11,7 +11,7 @@ is the single source of truth for domain context (about, mobile app behaviour, p
 compression), architecture diagram, directory table, and stack — read it first,
 consult it during tasks, do not duplicate it in prompts.
 
-- **Web app** — React + TanStack Router (React), static export, no ElectricSQL, ShadCN + Tailwind, Bun (`www/`; SolidJS until prompt 0025)
+- **Web app** — React + TanStack Router (React), static export, no ElectricSQL, ShadCN + Tailwind, Bun (`www/`)
 - **Mobile** — bare React Native + React Navigation, offline-first via embedded SQLite (`@op-engineering/op-sqlite`) + ElectricSQL shapes + an outbox, and the app documents directory for photo bytes, Bun (`mobile/` from prompt 0026; `pwa/` is the legacy SolidJS PWA until then)
 - **Central API** — Hono + Bun + Drizzle ORM, source of truth (`api/`)
 - **Database** — PostgreSQL: Better Auth tables in the `auth` schema (synced by Better Auth, see `docs/AUTHENTICATION.md`); application tables in `public` (Drizzle schema + `drizzle-kit push`, `packages/db`)

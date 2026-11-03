@@ -1,9 +1,16 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
-import solid from "vite-plugin-solid";
-import { iconsPluginSolid } from "@lofipix/ui/icons/vite-solid";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import { iconsPlugin } from "@lofipix/ui/icons/vite";
 
 export default defineConfig({
-  plugins: [iconsPluginSolid(), solid()],
+  plugins: [tailwindcss(), iconsPlugin(), react()],
+  resolve: {
+    alias: {
+      "@": fileURLToPath(new URL("../packages/ui/src", import.meta.url)),
+    },
+  },
   server: {
     host: "0.0.0.0",
     port: 5173,

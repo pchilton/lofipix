@@ -138,16 +138,48 @@ bun run test                       # vitest run
 
 ## Consuming from www
 
-1. Add `"@lofipix/ui": "workspace:*"` to the app's dependencies.
-2. Add `@tailwindcss/vite` to the app's Vite config and the icon plugin before
-   the React plugin (see `docs/ICONS.md`).
-3. Import the stylesheet once in the app entry, then import components from the
-   barrel:
+`www/` is the reference consumer.
+
+1. Dependencies: `"@lofipix/ui": "workspace:*"`, `tailwindcss` and
+   `@tailwindcss/vite` (the package's Tailwind peer).
+2. `www/vite.config.ts` adds `@tailwindcss/vite`, `iconsPlugin()` and
+   `@vitejs/plugin-react`, plus the package's `@` alias because `packages/ui`
+   ships TypeScript source with `@/lib/utils` imports:
 
    ```ts
-   import "@lofipix/ui/styles";
+   import { fileURLToPath } from "node:url";
+   import tailwindcss from "@tailwindcss/vite";
+   import { iconsPlugin } from "@lofipix/ui/icons/vite";
+   import react from "@vitejs/plugin-react";
+
+   export default defineConfig({
+     plugins: [tailwindcss(), iconsPlugin(), react()],
+     resolve: {
+       alias: { "@": fileURLToPath(new URL("../packages/ui/src", import.meta.url)) },
+     },
+   });
+   ```
+
+3. `www/tsconfig.json` mirrors the alias:
+
+   ```json
+   { "compilerOptions": { "paths": { "@/*": ["../packages/ui/src/*"] } } }
+   ```
+
+4. `www/src/index.css` imports the package stylesheet once and adds the app's
+   source scan:
+
+   ```css
+   @import "@lofipix/ui/styles";
+   @source "./";
+   ```
+
+5. Components come from the barrel:
+
+   ```ts
    import { Button, Card, CardContent } from "@lofipix/ui";
    ```
 
-Importing `@import "tailwindcss"` in the app's own CSS alongside the package
-stylesheet does not duplicate Tailwind's preflight.
+Do not also `@import "tailwindcss"` in the app stylesheet: the package entry
+already imports Tailwind and `tw-animate-css`, and the app only needs to add its
+own `@source`.

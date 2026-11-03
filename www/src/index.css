@@ -1,32 +1,10 @@
-:root {
-  font-family: system-ui, -apple-system, sans-serif;
-  color: #1f2933;
-  background-color: #f5f7fa;
-}
+@import "@lofipix/ui/styles";
+@source "./";
 
 body {
   margin: 0;
 }
 
-body > div {
+#root {
   min-height: 100vh;
-}
-
-nav {
-  display: flex;
-  justify-content: center;
-  gap: 1rem;
-  padding: 1rem;
-}
-
-main,
-section {
-  display: grid;
-  place-content: center;
-  min-height: 80vh;
-  text-align: center;
-}
-
-h1 {
-  margin: 0;
 }

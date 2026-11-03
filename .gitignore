@@ -37,8 +37,11 @@ pids/
 .env.*
 !.env.example
 
-# Test coverage
+# Test output
 coverage/
+test-results/
+playwright-report/
+blob-report/
 *.lcov
 .nyc_output/
 

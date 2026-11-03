@@ -12,9 +12,9 @@ These can then be attached to emails, where 10-20 photos will fit under 10MB.
 There is a public website detailing what LoFi Pix is, and administer organisations, users, albums and photos.
 The primary way of capturing photos is an offline-first, local-first native app for iOS and Android.
 
-> Migration in progress: `www/` is still the SolidJS website until prompt 0025, and
-> `pwa/` is the legacy SolidJS PWA until prompt 0026 renames it to `mobile/` and
-> rewrites it as React Native. The target stack is documented in `docs/ARCHITECTURE.md`.
+> Migration in progress: `pwa/` is the legacy SolidJS PWA until prompt 0026 renames
+> it to `mobile/` and rewrites it as React Native. The target stack is documented
+> in `docs/ARCHITECTURE.md`.
 
 ## General mobile app behaviour
 
@@ -115,11 +115,11 @@ graph TD
 | `pwa/` | **Legacy** SolidJS PWA, replaced by `mobile/` in prompt 0026 | SolidJS + TanStack Router (Solid) + Vite + VitePWA + PGlite (IndexedDB) + TanStack DB + ElectricSQL shape streams + TanStack Query, Bun |
 | `scripts/` | Operational scripts (incl. database reset, ElectricSQL container start and demo seeding) | TypeScript + Bun (workspace package) |
 | `workers/` | CloudFlare Workers | JavaScript |
-| `www/` | Website (plain static site, no ElectricSQL sync); React rewrite lands in prompt 0025 | SolidJS + TanStack Router (Solid) + Vite today; target React + TanStack Router (React) + ShadCN, Bun |
+| `www/` | Website (plain static site, no ElectricSQL sync) | React + TanStack Router (React) + TanStack Query + TanStack Form + ShadCN (`@lofipix/ui`) + Vite, static export, Bun |
 
 ## General technologies
 
-- **Website (target)**: React + TanStack Router (React) + TanStack Query (data fetching + caching with automatic retry) + TanStack Form + Zod, ShadCN + Tailwind CSS v4 from `@lofipix/ui`, static export
+- **Website**: React + TanStack Router (React) + TanStack Query (data fetching + caching with automatic retry) + TanStack Form + Zod, ShadCN + Tailwind CSS v4 from `@lofipix/ui`, static export
 - **Mobile (target)**: bare React Native + React Navigation native-stack, embedded SQLite (`@op-engineering/op-sqlite`) + Drizzle, ElectricSQL shape streams through the API proxy, SQLite outbox, React state/context + StyleSheet design tokens
 - **Mobile auth**: Better Auth bearer tokens stored in `react-native-keychain`; website keeps Better Auth cookie sessions
 - **Mobile client storage**: SQLite for relational data, app documents directory for photo bytes

@@ -1,31 +1,65 @@
-import { createRootRoute, createRoute, createRouter, Link, Outlet, redirect, useNavigate } from "@tanstack/solid-router";
-import { Show } from "solid-js";
+import {
+  Link,
+  Outlet,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  redirect,
+  useNavigate,
+} from "@tanstack/react-router";
+import { Button } from "@lofipix/ui";
+import IconLogOut from "~icons/lucide/log-out";
 
-import Welcome from "./routes/Welcome";
+import { authClient } from "./lib/auth-client";
 import Auth from "./routes/Auth";
 import Dashboard from "./routes/Dashboard";
-import { authClient } from "./lib/auth-client";
+import Welcome from "./routes/Welcome";
 
 function Nav() {
-  const session = authClient.useSession();
+  const { data: session } = authClient.useSession();
   const navigate = useNavigate();
 
   async function handleSignOut() {
     await authClient.signOut();
-    navigate({ to: "/" });
+    await navigate({ to: "/" });
   }
 
   return (
-    <nav>
-      <Link to="/">Home</Link>
-      <Show
-        when={session().data?.user}
-        fallback={<Link to="/auth">Sign in / Register</Link>}
-      >
-        <Link to="/dashboard">Dashboard</Link>
-        <button type="button" onClick={handleSignOut}>Sign out</button>
-      </Show>
-    </nav>
+    <header className="border-b bg-background">
+      <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
+        <Link to="/" className="text-sm font-semibold">
+          lofipix
+        </Link>
+        <nav className="flex items-center gap-3">
+          {session?.user ? (
+            <>
+              <Link to="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
+                Dashboard
+              </Link>
+              <Button variant="outline" size="sm" onClick={handleSignOut}>
+                <IconLogOut />
+                Sign out
+              </Button>
+            </>
+          ) : (
+            <Button asChild size="sm">
+              <Link to="/auth">Sign in / Register</Link>
+            </Button>
+          )}
+        </nav>
+      </div>
+    </header>
+  );
+}
+
+function RootLayout() {
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <Nav />
+      <main className="mx-auto w-full max-w-5xl px-4 py-10">
+        <Outlet />
+      </main>
+    </div>
   );
 }
 
@@ -39,11 +73,15 @@ async function signedInUser() {
 }
 
 const rootRoute = createRootRoute({
-  component: () => (
-    <>
-      <Nav />
-      <Outlet />
-    </>
+  component: RootLayout,
+  notFoundComponent: () => (
+    <div className="py-20 text-center">
+      <h1 className="text-2xl font-semibold">Page not found</h1>
+      <p className="mt-2 text-muted-foreground">The page you asked for does not exist.</p>
+      <Button asChild className="mt-6">
+        <Link to="/">Back to home</Link>
+      </Button>
+    </div>
   ),
 });
 
@@ -82,7 +120,7 @@ const routeTree = rootRoute.addChildren([indexRoute, authRoute, dashboardRoute])
 
 export const router = createRouter({ routeTree });
 
-declare module "@tanstack/solid-router" {
+declare module "@tanstack/react-router" {
   interface Register {
     router: typeof router;
   }

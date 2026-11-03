@@ -1,2 +1,2 @@
 /// <reference types="vite/client" />
-/// <reference types="@lofipix/ui/icons/types/solid" />
+/// <reference types="@lofipix/ui/icons/types" />

@@ -24,9 +24,9 @@ Configured in `packages/ui` for both builds:
 - ShadCN source uses `~icons/lucide/<name>`, not `lucide-react`, so there is one
   web icon pipeline.
 - **Legacy shim:** `@lofipix/ui/icons/vite-solid` and
-  `@lofipix/ui/icons/types/solid` keep the current SolidJS `www/` and `pwa/`
-  builds working until prompts 0025 and 0026 replace them. Do not use the shim
-  in new code; it is removed with the last Solid app.
+  `@lofipix/ui/icons/types/solid` keep the legacy SolidJS `pwa/` build working
+  until prompt 0026 replaces it. Do not use the shim in new code; it is removed
+  with the last Solid app.
 
 For a new React app:
 
@@ -95,5 +95,5 @@ prompt 0026 adds the native icon layer. The plugin resolves collections from
 - `bun run typecheck` in `packages/ui` (and later `www`/`mobile`).
 - `bun run test` in `packages/ui` runs the `Icons/Collections` story, which
   renders `lucide/camera` and `mdi/car-wrench` and asserts the SVG classes.
-- `bun run build` in `www` once the React rewrite lands; the built JS contains
-  the icon path data and no Iconify API URL.
+- `bun run build` in `www`; the built JS contains the icon path data and no
+  Iconify API URL.
