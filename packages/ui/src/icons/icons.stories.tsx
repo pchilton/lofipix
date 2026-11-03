@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect } from "storybook/test";
 import IconCamera from "~icons/lucide/camera";
 import IconCarWrench from "~icons/mdi/car-wrench";
@@ -13,9 +13,9 @@ type Story = StoryObj<typeof meta>;
 
 export const Collections: Story = {
   render: () => (
-    <div class="flex items-center gap-6 text-gray-800">
-      <IconCamera class="size-8" />
-      <IconCarWrench class="size-8" />
+    <div className="flex items-center gap-6 text-gray-800">
+      <IconCamera className="size-8" />
+      <IconCarWrench className="size-8" />
     </div>
   ),
   play: async ({ canvasElement }) => {

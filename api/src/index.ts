@@ -16,6 +16,7 @@ const ALLOWED_ORIGINS = new Set([
   "http://192.168.1.15:4173",
   "https://www.lofipix.app",
   "https://pwa.lofipix.app",
+  "lofipix://",
 ]);
 
 app.use(
@@ -49,8 +50,12 @@ async function resolveActiveOrganization(
   return members[0].organizationId;
 }
 
+async function resolveSession(c: Context) {
+  return auth.api.getSession({ headers: c.req.raw.headers });
+}
+
 async function requireSyncContext(c: Context) {
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
+  const session = await resolveSession(c);
   if (!session) {
     return { error: c.json({ error: "Not signed in." }, 401) } as const;
   }

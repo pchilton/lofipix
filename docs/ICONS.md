@@ -1,35 +1,43 @@
-# Icons (Iconify via unplugin-icons)
+# Icons (Iconify)
 
-Icons come from [Iconify](https://iconify.design) icon sets. unplugin-icons compiles
-each icon you import into a SolidJS component at build time. Only imported icons
-end up in the bundle, and nothing is fetched at runtime, so icons work offline in the PWA.
+Icons come from [Iconify](https://iconify.design) icon sets. Nothing is fetched
+from the Iconify API at runtime: web icons are compiled into React components at
+build time, and the mobile app bundles the icon data it uses.
 
-## Where it is configured (`packages/ui`)
+## Collections
 
-- `src/icons/vite.ts`: `iconsPlugin()`. Uses `unplugin-icons` with `compiler: "solid"`,
-  `autoInstall: false`, and `collectionsNodeResolvePath` pointing at `packages/ui`,
-  so icon sets resolve from the shared package whichever app builds.
-- `src/icons/types.d.ts`: ambient types for `~icons/*` imports.
-- `package.json`: `unplugin-icons` and the icon sets as dependencies.
-
-Configured collections:
+Configured in `packages/ui` for both builds:
 
 | Prefix | Package | Notes |
 | --- | --- | --- |
-| `lucide` | `@iconify-json/lucide` | Same family as `lucide-solid`, used by TarkUI |
-| `mdi` | `@iconify-json/mdi` | Material Design Icons, includes automotive icons (`car-wrench`, `car-door`) |
+| `lucide` | `@iconify-json/lucide` | General UI icons (camera, check, chevron, x, …) |
+| `mdi` | `@iconify-json/mdi` | Material Design Icons, including automotive icons (`car-wrench`, `car-door`) |
 
-## Using icons in `www/` or `pwa/`
+## Web (`www/`) — unplugin-icons
 
-Both apps already have the wiring. For a new app:
+- `packages/ui/src/icons/vite.ts`: `iconsPlugin()` uses `unplugin-icons` with
+  `compiler: "jsx"`, `jsx: "react"`, `autoInstall: false`, and
+  `collectionsNodeResolvePath` pointing at `packages/ui`, so icon sets resolve
+  from the shared package whichever app builds.
+- `packages/ui/src/icons/types.d.ts`: ambient types for `~icons/*` React
+  imports.
+- ShadCN source uses `~icons/lucide/<name>`, not `lucide-react`, so there is one
+  web icon pipeline.
+- **Legacy shim:** `@lofipix/ui/icons/vite-solid` and
+  `@lofipix/ui/icons/types/solid` keep the current SolidJS `www/` and `pwa/`
+  builds working until prompts 0025 and 0026 replace them. Do not use the shim
+  in new code; it is removed with the last Solid app.
+
+For a new React app:
 
 1. Add `"@lofipix/ui": "workspace:*"` to its dependencies.
-2. Register the plugin before `solid()` in `vite.config.ts`:
+2. Register the plugin before the React plugin in `vite.config.ts`:
 
    ```ts
+   import react from "@vitejs/plugin-react";
    import { iconsPlugin } from "@lofipix/ui/icons/vite";
 
-   export default defineConfig({ plugins: [iconsPlugin(), solid()] });
+   export default defineConfig({ plugins: [iconsPlugin(), react()] });
    ```
 
 3. Add the types to `src/vite-env.d.ts`:
@@ -43,12 +51,23 @@ Both apps already have the wiring. For a new app:
    ```tsx
    import IconCamera from "~icons/lucide/camera";
 
-   <IconCamera class="size-6" aria-hidden="true" />
+   <IconCamera className="size-6" aria-hidden="true" />
    ```
 
-Naming: Iconify `prefix:name` maps to `~icons/prefix/name` (`mdi:car-wrench` becomes
-`~icons/mdi/car-wrench`). Browse sets at https://icon-sets.iconify.design.
-Props such as `class`, `width`, `height`, `fill` and `aria-*` are spread onto the `<svg>`.
+Naming: Iconify `prefix:name` maps to `~icons/prefix/name` (`mdi:car-wrench`
+becomes `~icons/mdi/car-wrench`).
+
+## Mobile (`mobile/`) — react-native-svg
+
+React Native cannot render DOM `<svg>` elements, so the native app does not use
+`unplugin-icons`.
+
+- Icons come from the same `@iconify-json/*` packages.
+- A small `Icon` component renders bundled Iconify path data with
+  `react-native-svg`.
+- Only statically referenced icons are included; no dynamic
+  `~icons/${name}` lookups.
+- No runtime Iconify API calls: the app must work offline.
 
 ## Adding a collection
 
@@ -57,22 +76,24 @@ cd packages/ui
 bun add @iconify-json/<prefix>
 ```
 
-Then import `~icons/<prefix>/<name>` in an app. The plugin resolves collections from
-`packages/ui`, so the plugin configuration does not change.
+Then use `~icons/<prefix>/<name>` on web. The mobile registry is updated when
+prompt 0026 adds the native icon layer. The plugin resolves collections from
+`packages/ui`, so the web plugin configuration does not change.
 
 ## Rules
 
-- Icon names must be static string literals. `~icons/${name}` does not work, because
-  unplugin-icons resolves icons at build time.
-- Do not fetch icons from the Iconify API at runtime. The PWA is offline-first, so
-  bundled icons are the only supported source.
-- Install only the collections you use. Unused icons are not bundled, but collections
-  add install size.
+- Icon names must be static string literals. `~icons/${name}` does not work on
+  web, because unplugin-icons resolves icons at build time.
+- Do not fetch icons from the Iconify API at runtime.
+- Install only the collections you use. Unused icons are not bundled, but
+  collections add install size.
+- Keep the ShadCN icon imports as `~icons/lucide/*`. Re-apply that patch if a
+  component is re-copied from the registry.
 
 ## Verification
 
-- `bun run typecheck` in `packages/ui`, `pwa` and `www`.
-- `bun run test` in `packages/ui` runs the `Icons/Collections` story, which renders
-  `lucide/camera` and `mdi/car-wrench`.
-- `bun run build` in `pwa` and `www`. The built JS in `dist/assets/` contains the icon
-  path data and no Iconify API URL.
+- `bun run typecheck` in `packages/ui` (and later `www`/`mobile`).
+- `bun run test` in `packages/ui` runs the `Icons/Collections` story, which
+  renders `lucide/camera` and `mdi/car-wrench` and asserts the SVG classes.
+- `bun run build` in `www` once the React rewrite lands; the built JS contains
+  the icon path data and no Iconify API URL.

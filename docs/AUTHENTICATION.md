@@ -8,7 +8,8 @@ PostgreSQL `auth` schema, isolated from application tables in `public`.
 `packages/db/auth.ts` is the single Better Auth config, imported by both the
 API and `scripts/reset-database.ts` so both use the same plugin list.
 
-- Methods: email+password.
+- Methods: email+password; cookie sessions for the website; bearer tokens for
+  the native mobile app.
 - Database: Kysely `PostgresDialect` over `DATABASE_URL`, with
   `schemaName: 'auth'` so every Better Auth table is created in the `auth`
   schema. Detailed plugin configuration (OAuth providers, JWT options) is
@@ -20,14 +21,20 @@ API and `scripts/reset-database.ts` so both use the same plugin list.
 `api/src/index.ts` mounts `auth.handler` at `/api/auth/*` for GET and POST and
 applies CORS with credential support. Allowed origins are listed both in the
 Hono CORS allowlist and in Better Auth's `trustedOrigins`
-(`packages/db/auth.ts`): `192.168.1.15` on ports 5173 and 5174 for development
-(localhost is intentionally unsupported), plus `https://www.lofipix.app` and
-`https://pwa.lofipix.app`. Add any new client origin in both places.
+(`packages/db/auth.ts`): `192.168.1.15` on port 5173 for development (localhost
+is intentionally unsupported), `https://www.lofipix.app`, and the native app
+scheme `lofipix://`. The native app has no browser origin; its API calls send an
+`Authorization: Bearer` header instead of relying on CORS. Add any new browser
+origin in both places.
 
 Session cookies are host-only in development, scoped to `192.168.1.15`, so the
-website, PWA and API on different ports share the session. In production
+website and API share the session. In production
 (`advanced.crossSubDomainCookies`) they are issued for `.lofipix.app`, making
-the session available across all `*.lofipix.app` subdomains.
+the session available across all `*.lofipix.app` subdomains. Bearer sessions do
+not use cookies.
+
+The legacy PWA origins (port 5174 and `https://pwa.lofipix.app`) remain in the
+configuration until prompt 0026 removes the PWA.
 
 ## Plugins and tables
 
@@ -35,9 +42,30 @@ the session available across all `*.lofipix.app` subdomains.
 | --- | --- | --- |
 | core | `user`, `session`, `account`, `verification` | Identities, sessions, OAuth accounts, verification tokens. |
 | `organization` | `organization`, `member`, `invitation` (+ `activeOrganizationId` on `session`) | Organisations, memberships with roles, pending invitations. Replaces the old local `organisations`/`roles` tables. |
+| `bearer` | — (uses `session`) | Converts an `Authorization: Bearer <token>` header into a session for the native mobile app. No new tables. |
 | `magicLink` | — (uses `verification`) | Passwordless sign-in via emailed link. |
 | `emailOTP` | — (uses `verification`) | One-time codes for email verification / login. |
 | `genericOAuth` | — (uses `account`) | OAuth2 integrations (e.g. Xero: `offline_access`, token refresh). |
+
+## Native bearer transport
+
+The mobile app signs in with the normal Better Auth email/password endpoints and
+receives a session token. It stores that token in `react-native-keychain` and
+sends it on every API, shape and mutation request:
+
+```http
+Authorization: Bearer <token>
+```
+
+The `bearer()` plugin converts the header into the same Better Auth session
+that a cookie would produce. `api/src/index.ts` resolves sessions through
+`auth.api.getSession({ headers })`, so `GET/POST /api/sync/shapes/:table` and
+`POST /api/sync/mutations` accept either transport without separate code paths.
+The shape proxy sets `Vary: Cookie, Authorization` and `Cache-Control: no-store`.
+
+A `401` means the token is missing or invalid; the app marks the session stale
+and prompts for re-login without discarding local work. Signing out revokes the
+session and clears the keychain token.
 
 ## Sync process (two steps, strict split)
 

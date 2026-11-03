@@ -145,7 +145,7 @@ export async function proxyShape(
     ].join(','),
   );
   responseHeaders.set('cache-control', 'no-store');
-  responseHeaders.set('vary', 'Cookie');
+  responseHeaders.set('vary', 'Cookie, Authorization');
 
   return new Response(response.body, {
     status: response.status,

@@ -1,21 +1,21 @@
 # ElectricSQL
 
-ElectricSQL is the sync engine for the PWA. PostgreSQL remains the source of
-truth; Electric streams table shapes to the browser, the PWA stores them in
-PGlite (PostgreSQL compiled to WebAssembly) and TanStack DB provides the
-reactive collections the UI reads.
+ElectricSQL is the sync engine for the mobile app. PostgreSQL remains the source
+of truth; Electric streams table shapes through the API proxy, the app stores
+them in embedded SQLite and the UI re-queries after each batch.
 
 ```text
 PostgreSQL ──logical replication──► Electric (loopback :5637)
                                          ▲
                                          │ shape requests (secret injected server-side)
                                          │
-PWA ──cookie session──► API /api/sync/shapes/:table ──► Electric
- │
- ├─► PGlite (`idb://lofipix`) ◄── shape messages
- ├─► TanStack DB collections (tanstack-db-pglite)
- └─► outbox (PGlite) ──POST /api/sync/mutations──► API ──► PostgreSQL
+Mobile ──bearer token──► API /api/sync/shapes/:table ──► Electric
+  │
+  ├─► SQLite cache ◄── shape messages (custom writer)
+  └─► outbox (SQLite) ──POST /api/sync/mutations──► API ──► PostgreSQL
 ```
+
+The website does not use ElectricSQL or local persistence.
 
 ## Requirements
 
@@ -75,85 +75,72 @@ loopback. Logs: `docker logs -f electric`.
 
 ## Shape proxy
 
-The PWA never holds an Electric URL or secret. It requests
-`GET /api/sync/shapes/:table` (or `POST` for subset snapshots). The API:
+The mobile app never holds an Electric URL or secret. It requests
+`GET /api/sync/shapes/:table` (or `POST` for subset snapshots) with its Better
+Auth bearer token (or cookie session). The API:
 
-1. authenticates the Better Auth session;
+1. authenticates the Better Auth session from the cookie or `Authorization: Bearer` header;
 2. resolves the single active organisation;
 3. whitelists the table (`albums`, `photos`, `photo_locations`,
    `storage_providers`);
 4. forwards only `ELECTRIC_PROTOCOL_QUERY_PARAMS` from the client;
 5. sets `table`, `where organization_id = $1`, `params[1]`, `columns` and
    `secret` server-side;
-6. streams the response with `Cache-Control: no-store` and `Vary: Cookie`.
+6. streams the response with `Cache-Control: no-store` and
+   `Vary: Cookie, Authorization`.
 
 `storage_providers` excludes the server-only `encrypted_data` column. The
 public `config` object is synced.
 
 Shapes include tombstones (`deleted_at` is not filtered), so deletes reach
-every device. The PWA filters `deleted_at is null` in live queries.
+every device. The mobile app filters `deleted_at is null` in reads.
 
 `docs/NGINX.md` documents the streaming requirements for the API route.
 
 ## Local database
 
-- PGlite runs in the browser with the IndexedDB VFS: `idb://lofipix`.
-  OPFS AHP is not used because it requires a worker and is unsupported in
-  Safari; photo bytes remain in OPFS.
-- A Web Lock (`lofipix-db`) gives one tab exclusive access. Other tabs show an
-  "already open" state.
-- `pwa/src/lib/db/schema.ts` defines the local tables. They mirror the public
+- Embedded SQLite via `@op-engineering/op-sqlite`, accessed with Drizzle.
+- `mobile/src/lib/db/schema.ts` defines the local tables. They mirror the public
   columns plus a client-only `outbox_needed` flag. Local tables intentionally
   have no foreign keys, so shape delivery order cannot fail a write.
-- `tanstack-db-pglite` hydrates a TanStack DB collection from each local table.
-- Electric rows are written through the adapter's `sync` callback using
-  `ShapeStream` with `snakeCamelMapper`, a `timestamptz`/`int8` parser and a
-  `fetchClient` that sends cookies. `must-refetch` clears non-pending local
-  rows and replays the snapshot.
+- The app opens `ShapeStream` with a `fetchClient` that adds
+  `Authorization: Bearer`, `snakeCamelMapper`, a `timestamptz`/`int8` parser and
+  live SSE.
+- A custom writer applies change messages to SQLite. On `must-refetch` it clears
+  non-pending local rows and replays the snapshot. A small change notifier
+  causes React screens to re-query.
 - A record with a pending outbox entry ignores incoming shape messages until
   its mutation is resolved, so an older echo cannot clobber an optimistic edit.
 
-## Local schema snapshot
+## Local schema and cache rebuild
 
-`drizzle-kit push` is the schema-as-source-of-truth workflow for the local
-database too. It runs at build time because the browser cannot run CLI tools.
+The mobile cache is schema-versioned, not migrated incrementally.
 
-```bash
-cd pwa
-bun run snapshot        # writes public/pglite/schema-v<version>.tar.gz
-bun run snapshot --force
-```
+- `LOCAL_SCHEMA_VERSION` lives in `mobile/src/lib/db/schema.ts`.
+- The SQLite DDL is generated from the Drizzle schema into a bundled SQL asset
+  at build time.
+- On first launch the app creates the cache from that asset.
+- When the stored version differs, the app checks the outbox. If the device is
+  offline or the outbox has `pending`, `inflight` or `failed` mutations, the
+  rebuild is refused and the existing cache keeps working. Once the outbox is
+  drained, the app drops and recreates the SQLite cache and resyncs.
+- Photo bytes in the documents directory are untouched by a cache rebuild.
+- There are no incremental SQL migration files for the mobile cache.
 
-The script creates a throwaway PGlite data dir, runs
-`drizzle-kit push --driver pglite`, inserts the schema version into
-`local_meta`, dumps the data dir and writes a versioned archive.
-`predev`/`prebuild` run it automatically. The archive is gitignored and must
-be regenerated when `@electric-sql/pglite` or the local schema changes; bump
-`LOCAL_SCHEMA_VERSION` in `pwa/src/lib/db/schema.ts` in the same change.
-
-On first run the PWA loads the archive with `PGlite.create(..., {
-loadDataDir })`. The current version lives in `local_meta.schema_version`.
-If `indexedDB.databases()` is unavailable, the first-run check falls back to
-opening the existing data dir when PGlite reports that the database already
-exists, so the snapshot is only loaded into an empty data dir.
+This mirrors the old PGlite snapshot gate: synced rows are a cache, and the
+outbox is the only durable local work.
 
 ## Upgrades
 
-Synced rows are a cache; the outbox is the only durable local work. VitePWA
-uses `registerType: 'prompt'` and `injectRegister: false`.
-`pwa/src/lib/update.ts` waits until:
+An app release that changes `LOCAL_SCHEMA_VERSION` is safe to install at any
+time. The rebuild gate defers the cache replacement until:
 
-- the new service worker is waiting,
-- the device is online,
-- the outbox has no pending/inflight/failed mutations, and
-- all four shapes report up-to-date.
+- the device is online, and
+- the outbox has no pending/inflight/failed mutations.
 
-Only then does it activate the new worker and reload. The old cached app and
-schema keep working offline. After activation, `initLocalDatabase` sees the
-old `schema_version`, confirms the outbox is drained, deletes the `lofipix`
-IndexedDB database, loads the new snapshot and resyncs. OPFS photo bytes are
-untouched. Dead mutations are terminal and do not block an upgrade; they are
-retried once on the next app start.
+The old cache keeps working offline in the meantime. Dead mutations are
+terminal and do not block an upgrade; they are retried once on the next app
+start.
 
 ## Outbox and sync contract
 
@@ -232,9 +219,10 @@ curl -i http://127.0.0.1:5637/v1/health
 REGION=cholet bun scripts/reset-database.ts
 ```
 
-From a signed-in browser session, the four shape requests should return
-`200` and stream JSON/SSE. A `401` means the session is missing; a `503` means
-`ELECTRIC_SECRET` or Electric is unavailable.
+Sign in with a seeded user, keep the session token, and request a shape with
+`Authorization: Bearer <token>`. The four shape requests should return `200` and
+stream JSON/SSE. A `401` means the session is missing or the bearer token is
+invalid; a `503` means `ELECTRIC_SECRET` or Electric is unavailable.
 
 ## Troubleshooting
 
@@ -242,12 +230,12 @@ From a signed-in browser session, the four shape requests should return
   replication role.
 - **Shape 500 / no such table** — the table is not in the publication. Let
   Electric manage publication, or add it manually.
-- **`401`/`403` from the proxy** — the PWA session cookie is missing or the
-  user has no single active organisation.
+- **`401`/`403` from the proxy** — the session cookie or bearer token is
+  missing, or the user has no single active organisation.
 - **No live updates** — check `proxy_buffering off` on the API route in nginx;
   the proxy must not buffer SSE.
-- **Schema mismatch on startup** — the service worker activated while the
-  outbox was not drained, or the snapshot was regenerated with a different
-  PGlite version. Regenerate the snapshot and reload.
-- **Safari cannot open the database** — the PWA must use IndexedDB, not the
-  OPFS AHP VFS.
+- **Schema mismatch on startup** — the cache rebuild gate refused because the
+  outbox is not drained or the device is offline. Reconnect, let sync finish,
+  then relaunch.
+- **SQLite write fails after an app update** — confirm the bundled DDL matches
+  `LOCAL_SCHEMA_VERSION`; the cache is recreated, never migrated in place.

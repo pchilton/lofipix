@@ -1,7 +1,13 @@
 import '@lofipix/env';
 
 import { betterAuth } from 'better-auth';
-import { magicLink, emailOTP, genericOAuth, organization } from 'better-auth/plugins';
+import {
+  bearer,
+  magicLink,
+  emailOTP,
+  genericOAuth,
+  organization,
+} from 'better-auth/plugins';
 import { PostgresDialect } from 'kysely';
 import { Pool } from 'pg';
 
@@ -33,6 +39,7 @@ export const auth = betterAuth({
     'http://192.168.1.15:4173',
     'https://www.lofipix.app',
     'https://pwa.lofipix.app',
+    'lofipix://',
   ],
   advanced: isProduction
     ? {
@@ -68,6 +75,7 @@ export const auth = betterAuth({
   },
   plugins: [
     organization({ organizationLimit: 1 }),
+    bearer(),
     magicLink({
       sendMagicLink: async () => {},
     }),

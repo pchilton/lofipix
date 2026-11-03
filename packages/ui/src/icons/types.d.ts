@@ -1,1 +1,1 @@
-/// <reference types="unplugin-icons/types/solid" />
+/// <reference types="unplugin-icons/types/react" />

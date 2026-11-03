@@ -1,7 +1,7 @@
 import { defineConfig } from "vite";
 import solid from "vite-plugin-solid";
 import { VitePWA } from "vite-plugin-pwa";
-import { iconsPlugin } from "@lofipix/ui/icons/vite";
+import { iconsPluginSolid } from "@lofipix/ui/icons/vite-solid";
 
 export default defineConfig({
   worker: {
@@ -11,7 +11,7 @@ export default defineConfig({
     exclude: ["@electric-sql/pglite"],
   },
   plugins: [
-    iconsPlugin(),
+    iconsPluginSolid(),
     solid(),
     VitePWA({
       registerType: "prompt",

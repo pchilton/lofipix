@@ -7,12 +7,12 @@ Individual development tasks live in `prompts/` — an agent asked to "implement
 
 lofipix is a multi-client app platform for panel-beaters to capture vehicle
 damage photos offline and sync them to cloud storage. The README (`README.md`)
-is the single source of truth for domain context (about, PWA behaviour, photo
+is the single source of truth for domain context (about, mobile app behaviour, photo
 compression), architecture diagram, directory table, and stack — read it first,
 consult it during tasks, do not duplicate it in prompts.
 
-- **Web app** — SolidJS + TanStack Router (Solid), static export, no PWA/ElectricSQL, Bun (`www/`)
-- **PWA** — SolidJS + TanStack Router (Solid) + VitePWA, offline-first via PGlite (IndexedDB) + ElectricSQL shapes + an outbox, and OPFS for photo bytes, Bun (`pwa/`)
+- **Web app** — React + TanStack Router (React), static export, no ElectricSQL, ShadCN + Tailwind, Bun (`www/`; SolidJS until prompt 0025)
+- **Mobile** — bare React Native + React Navigation, offline-first via embedded SQLite (`@op-engineering/op-sqlite`) + ElectricSQL shapes + an outbox, and the app documents directory for photo bytes, Bun (`mobile/` from prompt 0026; `pwa/` is the legacy SolidJS PWA until then)
 - **Central API** — Hono + Bun + Drizzle ORM, source of truth (`api/`)
 - **Database** — PostgreSQL: Better Auth tables in the `auth` schema (synced by Better Auth, see `docs/AUTHENTICATION.md`); application tables in `public` (Drizzle schema + `drizzle-kit push`, `packages/db`)
 - **Storage** — SeaweedFS (S3-compatible)
@@ -26,19 +26,19 @@ Deployment: Github Actions.
 
 Read the relevant file when a task touches its area:
 
-- `docs/ARCHITECTURE.md` — target technology stacks for `www/`, `pwa/`, `api/`, shared models, frontend conventions, communication channels.
+- `docs/ARCHITECTURE.md` — target technology stacks for `www/`, `mobile/`, `api/`, shared models, frontend conventions, communication channels.
 - `docs/WEBSITE.md` — website storyboard: pages, contents, user journey (marketing → dashboard → account/billing).
-- `docs/WEBAPP.md` — PWA storyboard: offline capture loop (dashboard → create → capture → finish → submit).
-- `docs/ELECTRICSQL.md` — ElectricSQL + PGlite sync: shape proxy, outbox/version contract, local schema snapshots and updates.
+- `docs/MOBILE.md` — mobile storyboard: offline capture loop (dashboard → create → capture → finish → submit), SQLite cache and native modules.
+- `docs/ELECTRICSQL.md` — ElectricSQL + SQLite sync: shape proxy, outbox/version contract, cache rebuild and updates.
 - `docs/AUTHENTICATION.md` — Better Auth setup: config (`packages/db/auth.ts`), `auth`-schema tables per plugin, the two-step sync process, and `packages/db/external` proxies (types + foreign-key targets).
 - `docs/STORAGE.md` — SeaweedFS setup, buckets, auth, systemd service.
 - `docs/DEPLOYMENT.md` — deployment targets, domains, auth cookies.
 - `docs/NGINX.md` — nginx reverse proxy for API and storage.
 - `docs/UPTRACE.md` — self-hosted observability (Docker skeleton + instrumentation map).
-- `docs/TARKUI.md` — TarkUI shared components in `packages/ui`: solidcn install flow, Storybook, Vitest, consumption from `www/` and `pwa/`.
-- `docs/ICONS.md` — Iconify icons compiled into SolidJS components (unplugin-icons); config in `packages/ui`, used by `www/` and `pwa/`.
+- `docs/SHADCN.md` — ShadCN web components in `packages/ui`: install flow, theme, Storybook, Vitest, consumption from `www/`.
+- `docs/ICONS.md` — Iconify icons: React components via unplugin-icons on the web and bundled data via react-native-svg in the mobile app.
 - `docs/PHOTOS.md` — the `photos` table: columns, constraints, soft deletes, sync and the backing stores holding the image bytes.
-- `docs/PHOTO_LOCATIONS.md` — storage providers and photo locations: how OPFS, SeaweedFS, OneDrive and Google Drive copies are recorded, verified, synced and cleaned up; credential encryption.
+- `docs/PHOTO_LOCATIONS.md` — storage providers and photo locations: how device-local (`opfs`), SeaweedFS, OneDrive and Google Drive copies are recorded, verified, synced and cleaned up; credential encryption.
 
 ## Non-negotiables
 
@@ -53,13 +53,14 @@ Read the relevant file when a task touches its area:
 - Packages are managed by Bun: use `bun install`; the lockfile is `bun.lock`.
 - Region-specific environment lives in `.env.<REGION>` at the repo root; prefix Bun commands with the region (e.g. `REGION=cholet bun run <script>`), and `import "@lofipix/env";` loads it exactly once per process.
 - Database sync is two-step: Better Auth tables sync into the `auth` schema via `REGION=cholet bun scripts/reset-database.ts` (driven by `packages/db/auth.ts`); application tables sync into `public` via `db:push` from `packages/db`. Custom SQL (extensions, functions, views) is applied manually or in a later task — no SQL migration files in the repo.
-- Each app folder (`api/`, `www/`, `pwa/`) uses Bun with HMR. API database access uses Drizzle with `DATABASE_URL`.
+- Each app folder (`api/`, `www/`, `mobile/`) uses Bun for scripts and package management; `www/` and `api/` use HMR. API database access uses Drizzle with `DATABASE_URL`.
 - Shared types and Zod schemas go in `models/` and are imported by API and clients — do not re-define them locally. Database models (Drizzle tables + their Zod schemas) live in `packages/db/models/`.
-- Record ids are UUIDv7 generated with `uuidv7()` from the `uuid` package, not `Bun.randomUUIDv7()`: the PWA is a browser app and must mint ids offline.
+- Website code is React + TanStack Router/Query/Form with ShadCN; mobile code is React Native + React Navigation with SQLite/Drizzle. Do not introduce SolidJS, TarkUI, PGlite, VitePWA or TanStack DB.
+- Record ids are UUIDv7 generated with `uuidv7()` from the `uuid` package, not `Bun.randomUUIDv7()`: the mobile app is native and must mint ids offline.
 - API endpoints validate input with Zod schemas from `models/`.
-- Shared UI components (TarkUI: Ark UI + Tailwind) live in `packages/ui` (`@lofipix/ui`) as copied-in source, each with a colocated `*.stories.tsx`. Follow `docs/TARKUI.md`. Never run `solidcn add` or `solidcn update` inside a workspace package directory: it runs `npm` there. Storybook and component tests run from `packages/ui` (`bun run storybook`, `bun run test`).
-- The PWA local schema lives in `pwa/src/lib/db/schema.ts` and is managed with `drizzle-kit push` at build time. `bun run snapshot` (from `pwa/`) generates the versioned empty PGlite archive; never hand-edit generated snapshots. Syncable local tables carry a client-only `outbox_needed` flag and an outbox; local writes go through the outbox, not directly to the API.
-- Icons come from Iconify collections compiled by unplugin-icons. Configuration lives in `packages/ui/src/icons/`; apps import `~icons/<prefix>/<name>` with static names. Never fetch icons from the Iconify API at runtime (offline PWA). Follow `docs/ICONS.md`.
+- Shared web UI components (ShadCN: Radix + Tailwind) live in `packages/ui` (`@lofipix/ui`) as copied-in source, each with a colocated `*.stories.tsx`. Follow `docs/SHADCN.md`. Never run the ShadCN CLI or `solidcn` inside a workspace package directory: it can write an `npm` lockfile there. Generate outside the workspace and copy source in. Storybook and component tests run from `packages/ui` (`bun run storybook`, `bun run test`).
+- The mobile local schema lives in `mobile/src/lib/db/schema.ts` (created in prompt 0026) and uses a versioned cache rebuild, not incremental migrations. Syncable local tables carry a client-only `outbox_needed` flag and an outbox; local writes go through the outbox, not directly to the API.
+- Icons come from Iconify collections. Web apps compile them with unplugin-icons (`~icons/<prefix>/<name>`, static names); the mobile app bundles them for react-native-svg. Never fetch icons from the Iconify API at runtime. Follow `docs/ICONS.md`.
 - Object storage access goes through pre-signed URLs generated by the API — clients never hold S3 credentials.
 - Photo bytes are located through `storage_providers` and `photo_locations` (see `docs/PHOTO_LOCATIONS.md`). `storage_providers.encrypted_data` is a separate server-only object of individually encrypted secret fields: never include it in an Electric shape, return it from a client-facing endpoint, or log it.
 - Authorization is enforced via the Better Auth organisation plugin (organisation / member tables in the `auth` schema). See `docs/AUTHENTICATION.md`.

@@ -1,8 +1,9 @@
 # Website (www.lofipix.app) — Storyboard
 
 Marketing + management surface. Desktop-first, always-online, thin client over
-the central Hono API. SolidJS + TanStack Router (static export), Ark UI + Tailwind
-("Tark UI"), TanStack Query, Better Auth client. No PWA, no ElectricSQL sync, no local persistence.
+the central Hono API. React + TanStack Router (static export), ShadCN + Tailwind
+(`packages/ui`), TanStack Query, Better Auth React client. No ElectricSQL sync and
+no local persistence.
 
 ## User journey
 
@@ -10,15 +11,15 @@ the central Hono API. SolidJS + TanStack Router (static export), Ark UI + Tailwi
 
 A visitor learns what lofipix is from the Home page and signs in or registers.
 Registration creates a user and a single organisation in one flow. Photo capture
-happens in the PWA; the website is for review and administration.
+happens in the native mobile app; the website is for review and administration.
 
 ## Data source
 
 The website treats the central API as the source of truth. It holds no local
 queue and no optimistic offline state: every view reflects what the API returns
-via TanStack Query. The PWA behaves differently (ElectricSQL + PGlite, device-first,
-optimistic updates) — see `docs/WEBAPP.md`; do not carry PWA semantics into the
-website.
+via TanStack Query. The mobile app behaves differently (ElectricSQL + SQLite,
+device-first, optimistic updates) — see `docs/MOBILE.md`; do not carry mobile
+semantics into the website.
 
 Sync/upload status shown on the website is derived from API state, e.g.
 `queued`, `processing`, `synced` — never "device-only" or "local-only", which
@@ -30,13 +31,12 @@ The site is statically exported and selects its endpoints at runtime from
 `www/src/lib/config.ts` by inspecting `window.location`:
 
 - **Development** — port `5173` on the LAN IP only:
-  `http://192.168.1.15:5173/`, `http://192.168.1.15:5174/`,
-  `http://192.168.1.15:5634/`. `localhost` is not supported; loading the dev
-  server from another hostname throws and asks for the LAN URL. The website,
-  PWA and API share the `192.168.1.15` host so session cookies are sent.
+  `http://192.168.1.15:5173/` and `http://192.168.1.15:5634/`. `localhost` is not
+  supported; loading the dev server from another hostname throws and asks for
+  the LAN URL. The website and API share the `192.168.1.15` host so session
+  cookies are sent.
 - **Production** — HTTPS on `www.lofipix.app`: `WEBSITE_URL`
-  `https://www.lofipix.app/`, `WEBAPP_URL` `https://pwa.lofipix.app/`, `API_URL`
-  `https://oceania.lofipix.app/`.
+  `https://www.lofipix.app/`, `API_URL` `https://oceania.lofipix.app/`.
 
 "No SSR": dynamic routes (`/albums/:id`, `/account`, …) rely on the host's
 SPA fallback to `index.html` for client-side routing.
@@ -49,14 +49,14 @@ SPA fallback to `index.html` for client-side routing.
 
 ### Home (`/`)
 
-Marketing page. What lofipix is, who it's for: a mobile-first, offline-first PWA
+Marketing page. What lofipix is, who it's for: a mobile-first, offline-first app
 for capturing panel damage photos, with cloud albums and organisation sharing.
 
 - Hero: value proposition + CTA (Sign in / Register).
-- **Open PWA**: links directly to `config.WEBAPP_URL` in a new tab (`target="_blank"`,
-  `rel="noopener noreferrer"`). The PWA has its own login screen, so the website
-  does not gate or proxy this link.
-- Feature strip: offline-first PWA capture, cloud albums, organisation sharing.
+- **Get the app**: the native iOS/Android app has its own login screen. Store
+  links are added when the app is published; the website does not link to the
+  retired PWA.
+- Feature strip: offline-first capture, cloud albums, organisation sharing.
 - No pricing/billing marketing until Billing is implemented.
 
 ### Auth (`/auth`)
@@ -177,6 +177,7 @@ name, defaults.
   "reconnect" banner (no local queue — website requires connectivity).
 - No direct `fetch()` in components; typed API modules + TanStack Query with retry.
 - Every API response validated with shared Zod schemas.
+- ShadCN components come from `@lofipix/ui`; see `docs/SHADCN.md`.
 - Route guards run in TanStack Router `beforeLoad`; unauthenticated users are
   redirected to `/auth` with a `redirect` search parameter, and 404s render a
   not-found page.

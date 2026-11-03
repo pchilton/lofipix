@@ -3,7 +3,8 @@ import Icons from "unplugin-icons/vite";
 
 export function iconsPlugin() {
   return Icons({
-    compiler: "solid",
+    compiler: "jsx",
+    jsx: "react",
     autoInstall: false,
     collectionsNodeResolvePath: fileURLToPath(new URL("../../", import.meta.url)),
   });

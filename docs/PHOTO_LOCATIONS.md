@@ -4,7 +4,7 @@ This document describes how photo bytes are located across the backing stores
 used by lofipix. The `photos` row holds image metadata and never the bytes
 themselves (see `docs/PHOTOS.md`). A photo can exist in several places at once:
 
-- **OPFS** — the local copy on the PWA device that captured it;
+- **Device filesystem (`opfs` provider type)** — the local copy on the mobile device that captured it;
 - **S3** — the canonical copy in LoFi Pix object storage;
 - **OneDrive / Google Drive** — an optional copy exported to the customer's
   own drive.
@@ -14,8 +14,8 @@ records that a photo has actually been written to one of those providers. A
 location row is evidence that the bytes exist; it is created only after the
 write has been verified.
 
-There is deliberately **no `devices` table**. Each PWA is an ordinary OPFS
-storage provider, identified by a client-minted device UUID.
+There is deliberately **no `devices` table**. Each mobile device is an ordinary
+`opfs` storage provider, identified by a client-minted device UUID.
 
 ## Data model
 
@@ -79,19 +79,19 @@ the organisation FK uses the existing `authOrganization` proxy from
 `packages/db/external/auth-tables.ts`.
 
 Ids are UUIDv7 generated with `uuidv7()` from the `uuid` package, never
-`Bun.randomUUIDv7()`. The PWA must be able to mint provider and location ids
-offline in a browser.
+`Bun.randomUUIDv7()`. The mobile app must be able to mint provider and location
+ids offline.
 
 ## `storage_providers`
 
 | Column | Type | Notes |
 | --- | --- | --- |
-| `id` | `uuid` | UUIDv7, primary key. The PWA mints this for an OPFS provider created offline. |
+| `id` | `uuid` | UUIDv7, primary key. The mobile app mints this for an `opfs` provider created offline. |
 | `organization_id` | `text` | Foreign key to `auth.organization(id)`, `ON DELETE CASCADE`. Not null. A provider always belongs to exactly one organisation. |
 | `provider_type` | `storage_provider_type` | Not null. Enum: `opfs`, `s3`, `onedrive`, `google_drive`. |
 | `label` | `text` | Human-readable name shown in the UI, e.g. "LoFi Pix cloud", "Paul's OneDrive", "Pixel 8". Not null. |
 | `external_id` | `text` | Not null. Provider-native identity. See [Provider identity](#provider-identity). |
-| `config` | `jsonb` | Not null, default `{}`. Public, non-secret provider settings. Synced to the PWA as part of the `storage_providers` shape. |
+| `config` | `jsonb` | Not null, default `{}`. Public, non-secret provider settings. Synced to the mobile app as part of the `storage_providers` shape. |
 | `encrypted_data` | `jsonb` | Not null, default `{}`. Server-only object of individually encrypted secret fields. Excluded from the Electric shape and never accepted from clients. |
 | `version` | `bigint` | Server-incremented optimistic-concurrency version. Starts at 1. |
 | `deleted_at` | `timestamptz` | Tombstone. Null for live rows. |
@@ -105,7 +105,7 @@ provider type:
 
 | Type | `external_id` |
 | --- | --- |
-| `opfs` | Client-minted UUIDv7 device identifier. This is the PWA's stable identity; `storage_providers.id` is a separate row id. |
+| `opfs` | Client-minted UUIDv7 device identifier. This is the mobile device's stable identity; `storage_providers.id` is a separate row id. |
 | `s3` | Bucket name, e.g. `storage-cholet-lofipix`. |
 | `onedrive` | OneDrive drive id (personal or business). |
 | `google_drive` | Google Drive shared-drive or user drive id. |
@@ -119,7 +119,7 @@ WHERE deleted_at IS NULL
 ```
 
 The same device UUID may appear in more than one organisation, each with its
-own OPFS provider row. The same bucket can back several organisations; the
+own `opfs` provider row. The same bucket can back several organisations; the
 constraint is per organisation.
 
 ### Provider config
@@ -130,7 +130,7 @@ secret field name. Splitting the columns lets Electric sync `config` while
 excluding `encrypted_data` with a `columns` projection. The Zod schemas
 validate `config` per provider type.
 
-**OPFS**
+**Device filesystem (`opfs`)**
 
 ```json
 {
@@ -146,7 +146,7 @@ validate `config` per provider type.
 - `platform` is required and is `ios` or `android`.
 - `deviceName`, `model`, `osVersion`, `appVersion` and `userAgent` are
   optional. They exist to label the device and diagnose capture problems.
-- An OPFS provider has no secrets; `encrypted_data` stays `{}`.
+- An `opfs` provider has no secrets; `encrypted_data` stays `{}`.
 - These values are personal data and are visible to the other devices in the
   organisation through the `storage_providers` shape.
 
@@ -267,7 +267,7 @@ contents.
 
 Application rules, not SQL constraints:
 
-- An OPFS provider has `encrypted_data = {}`.
+- An `opfs` provider has `encrypted_data = {}`.
 - An S3 provider has `encrypted_data = {}`; its access keys come from the
   region environment (`SEAWEEDFS_ACCESS_KEY` / `SEAWEEDFS_SECRET_KEY`).
 - A connected OneDrive/Google Drive provider has an `encrypted_data` object
@@ -282,7 +282,7 @@ Application rules, not SQL constraints:
 
 An organisation may define several providers of the same type. The UI selects
 the destination; there is no database-level default. S3 is canonical by
-type, OneDrive/Google Drive copies are replicas, and OPFS is the local copy.
+type, OneDrive/Google Drive copies are replicas, and `opfs` is the local copy.
 
 Every organisation has at least one S3 provider. The API provisions it
 idempotently, either when the organisation is created or on first use, using
@@ -314,7 +314,7 @@ holds. A location is only written after those bytes were verified.
 - `CHECK (length(btrim(object_key)) > 0)`.
 - Indexes on `storage_provider_id`, `photo_id` and `organization_id`.
 
-A photo can therefore have several live locations at once: its OPFS copy, the
+A photo can therefore have several live locations at once: its device-local copy, the
 S3 copy and any number of cloud-drive copies.
 
 ## Object key layout
@@ -328,11 +328,11 @@ introduced without changing the schema.
 | S3 | `{organizationId}/albums/{albumId}/photos/{photoId}.jpg`, optionally prefixed by the provider's `config.prefix`. |
 | OneDrive | `{albumName}/{photoPosition}.jpg`, relative to `config.rootFolder`. |
 | Google Drive | `{albumName}/{photoPosition}.jpg`, Same path relative to the configured root folder. |
-| OPFS | `photos/{photoId}.jpg` inside the PWA's OPFS app directory. The device is identified by the provider's `external_id`. |
+| `opfs` | `photos/{photoId}.jpg` inside the mobile app's documents directory. The device is identified by the provider's `external_id`. |
 
 Rules:
 
-- Keys for S3 and OPFS contain only UUIDs and fixed path segments; no user-supplied album
+- Keys for S3 and `opfs` contain only UUIDs and fixed path segments; no user-supplied album
   names, plate numbers or file names.
 - Bytes are the compressed JPEG described by `photos.image_*`; there are no
   separate thumbnail or original objects in this model.
@@ -351,15 +351,15 @@ idempotent through the `(organization_id, provider_type, external_id)` unique
 index. The provider's `external_id` is the region bucket, `config` holds the
 endpoint and prefix, and there is no `encrypted_data`.
 
-### OPFS provider provisioning
+### `opfs` provider provisioning
 
-On first run for an organisation, the PWA:
+On first run for an organisation, the mobile app:
 
-1. loads or creates a device UUID (UUIDv7), persisted in OPFS/local storage;
+1. loads or creates a device UUID (UUIDv7), persisted in app storage;
 2. mints a provider row id (UUIDv7);
-3. inserts the OPFS `storage_providers` row with `label` and `config`;
-4. inserts its OPFS locations as photos are captured;
-5. syncs the rows through the PGlite outbox when connectivity returns.
+3. inserts the `opfs` `storage_providers` row with `label` and `config`;
+4. inserts its `opfs` locations as photos are captured;
+5. syncs the rows through the SQLite outbox when connectivity returns.
 
 The provider is created offline; no API call is required. If app storage is
 cleared, a new device UUID and provider are created. The old provider remains
@@ -372,21 +372,21 @@ separate provider row in that organisation.
 ### Capture and local write
 
 1. The camera capture is compressed to a JPEG (see `docs/PHOTOS.md`).
-2. The PWA computes the image size and lowercase hex SHA-256.
-3. It writes the bytes to OPFS at `photos/{photoId}.jpg`.
+2. The mobile app computes the image size and lowercase hex SHA-256.
+3. It writes the bytes to the documents directory at `photos/{photoId}.jpg`.
 4. It verifies the stored bytes (read back and hash, or hash while writing).
-5. It inserts the `photos` row and the OPFS `photo_locations` row into local
-   PGlite, then enqueues the upload.
+5. It inserts the `photos` row and the `opfs` `photo_locations` row into local
+   SQLite, then enqueues the metadata sync.
 6. The outbox posts the photo, provider and location rows to
-   `POST /api/sync/mutations`; the upload remains queued while offline.
+   `POST /api/sync/mutations`; metadata sync remains queued while offline.
 
 A photo without `image_checksum` cannot have a location row; hashing is part of
 the write.
 
 ### S3 upload and verification
 
-The PWA obtains a short-lived pre-signed PUT URL from the API, uploads the
-bytes, then confirms the upload. The API reads the uploaded object back and
+The mobile app obtains a short-lived pre-signed PUT URL from the API, uploads
+the bytes, then confirms the upload. The API reads the uploaded object back and
 hashes it; it does not trust a client-supplied checksum or S3 metadata alone.
 `photos.image_checksum` and `photos.image_size` are the comparison values. A
 mismatch rejects the location, and the invalid object is left for the orphan
@@ -424,8 +424,8 @@ Export jobs and API routes are implemented in a separate task.
 
 For a photo, the client resolves the best available copy:
 
-1. **OPFS** — read `photos/{photoId}.jpg` locally, no network. This is the
-   normal path on the capturing device.
+1. **Device filesystem** — read `photos/{photoId}.jpg` from the app documents
+   directory, no network. This is the normal path on the capturing device.
 2. **S3** — `GET /photos/:id/content` (or a download-URL endpoint)
    validates organisation membership and a live S3 location, then
    returns a short-lived pre-signed GET URL or redirects to it.
@@ -443,11 +443,11 @@ implemented in a later task.
 
 ### Delete and retention
 
-- Deleting a photo tombstones `photos.deleted_at`, its OPFS locations and its
+- Deleting a photo tombstones `photos.deleted_at`, its `opfs` locations and its
   S3 locations.
 - Deleting an album tombstones the album and all its photos, and follows the
   same location rules.
-- OPFS bytes are deleted locally by the PWA.
+- Device filesystem bytes are deleted locally by the mobile app.
 - A pgmq cleanup job deletes the S3 object 30 days after the location
   tombstone (configurable). The grace period lets other devices receive the
   deletion first.
@@ -463,8 +463,8 @@ implemented in a later task.
   set `encrypted_data = {}`, and keep
   the files and location rows. Reconnecting revives the same provider row
   with new secrets rather than creating a duplicate.
-- **OPFS**: tombstone the provider, stop uploads, and clean local bytes. The
-  location rows remain as tombstones.
+- **Device filesystem (`opfs`)**: tombstone the provider, stop uploads, and
+  clean local bytes. The location rows remain as tombstones.
 - **S3**: canonical, so it cannot be disconnected while the
   organisation has live photos.
 
@@ -494,21 +494,21 @@ The shape definitions are in `api/src/sync-shapes.ts`:
 - `storage_providers` syncs its public columns including `config`, but
   excludes `encrypted_data`.
 
-Shapes include tombstones; the PWA filters `deleted_at is null` in live
-queries. Every table is organisation-scoped by the proxy, so a client only
+Shapes include tombstones; the mobile app filters `deleted_at is null` in
+reads. Every table is organisation-scoped by the proxy, so a client only
 ever receives its own organisation's rows. There is no global multi-tenant
 stream.
 
-OPFS providers and locations can be created in the PWA's local PGlite
+`opfs` providers and locations can be created in the mobile app's local SQLite
 database and sent through the outbox. The API-side mutation validation
 enforces:
 
 - the provider's organisation matches the signed-in user's membership;
-- OPFS providers have a UUID `external_id`, a valid `platform` and
+- `opfs` providers have a UUID `external_id`, a valid `platform` and
   `encrypted_data = {}`;
 - a location's photo and provider belong to the same organisation
   (composite foreign keys plus explicit checks);
-- the OPFS `object_key` matches `photos/{photoId}.jpg`;
+- the `opfs` `object_key` matches `photos/{photoId}.jpg`;
 - the location is unique among live rows.
 
 S3 locations are written by the API after verification, not by the outbox.
@@ -530,7 +530,7 @@ include `encrypted_data`.
 - **Key validation**: `object_key` is validated against the deterministic
   expected value before any location insert or provider API call. Reject path
   traversal, absolute paths and keys belonging to another photo.
-- **PII**: OPFS `config` contains device details and is visible to the other
+- **PII**: `opfs` `config` contains device details and is visible to the other
   devices in the same organisation through the org-scoped shape. Do not add
   advertising identifiers or precise location.
 - **Provider metadata**: `config.accountEmail` and labels are non-secret but
@@ -540,8 +540,8 @@ include `encrypted_data`.
 
 | Situation | Behaviour |
 | --- | --- |
-| PWA offline during capture | Photo, OPFS provider and location stay local; upload queued. |
-| App storage cleared | New device UUID and OPFS provider; old provider remains until manually tombstoned. |
+| Mobile offline during capture | Photo, `opfs` provider and location stay local; metadata sync queued. |
+| App storage cleared | New device UUID and `opfs` provider; old provider remains until manually tombstoned. |
 | Pre-signed PUT succeeds, confirmation never arrives | No location row; orphan cleanup removes the object after the retention window. |
 | Uploaded bytes fail size/checksum | Location rejected; object removed/quarantined; client may retry. |
 | Duplicate confirmation | Idempotent; return the existing live location. |
@@ -549,9 +549,9 @@ include `encrypted_data`.
 | Provider tombstoned during upload | Confirmation rejected; object cleaned up. |
 | OAuth token expired during export | Refresh and re-encrypt the changed `encrypted_data` fields; retry. If refresh fails, job fails and the provider shows reconnect required. |
 | Drive file already exists | Treat as idempotent success after verifying size/checksum; do not create a duplicate location. |
-| Photo deleted before upload | Cancel the queued upload and delete local OPFS bytes; no S3/cloud copy is created. |
+| Photo deleted before upload | Cancel the queued upload and delete local device bytes; no S3/cloud copy is created. |
 | Location tombstoned then re-uploaded | New location row; the partial unique index allows it. |
-| Stale OPFS provider | Manual tombstone from the website; its locations are tombstoned and local bytes are already gone. |
+| Stale `opfs` provider | Manual tombstone from the website; its locations are tombstoned and local bytes are already gone. |
 
 ## API surface
 
@@ -561,7 +561,7 @@ All are API-only, authenticated, and scoped to the caller's organisation.
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` | `/storage-providers` | List providers using the public schema (`config` without `encrypted_data`). |
-| `POST` | `/storage-providers` | Create a non-OPFS provider. OPFS providers are created by the PWA and arrive through the outbox. |
+| `POST` | `/storage-providers` | Create a non-`opfs` provider. `opfs` providers are created by the mobile app and arrive through the outbox. |
 | `PATCH` | `/storage-providers/:id` | Update `label` and non-secret `config` fields; preserve and never accept `encrypted_data`. |
 | `DELETE` | `/storage-providers/:id` | Tombstone/disconnect a provider. |
 | `POST` | `/storage-providers/:id/reconnect` | Start the OAuth flow for a tombstoned cloud provider. |
@@ -581,7 +581,7 @@ Completed in this task:
 - `packages/db/schema.ts` — re-exports both new models.
 - `scripts/reset-database.ts` — verification asserts both tables, composite foreign keys, partial unique indexes and check constraints.
 - `scripts/electric.ts` — starts ElectricSQL; `api/src/sync-shapes.ts` defines the provider/location column projections.
-- PWA PGlite collections and outbox support provider/location rows.
+- Mobile SQLite collections and outbox support provider/location rows (prompt 0026).
 - `.env.example` — adds `STORAGE_PROVIDER_CREDENTIALS_KEY` and the ElectricSQL variables.
 
 Deferred to later tasks:

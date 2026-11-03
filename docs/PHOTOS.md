@@ -15,7 +15,7 @@ shared Zod schemas `photoSelectSchema` / `photoInsertSchema` and the types
 
 | Column | Type | Notes |
 | --- | --- | --- |
-| `id` | `uuid` | UUIDv7, primary key. Generated with `uuidv7()` from the `uuid` package so the PWA (a browser app) can mint ids offline. |
+| `id` | `uuid` | UUIDv7, primary key. Generated with `uuidv7()` from the `uuid` package so the mobile app can mint ids offline. |
 | `organization_id` | `text` | Foreign key to `auth.organization(id)`, `ON DELETE CASCADE`. An album always belongs to exactly one organisation. |
 | `name` | `text` | Human-readable album name. |
 | `notes` | `text` | Free-form notes, nullable. Paragraphs are delimited by a single blank line (two `\n`). See [Album notes](#album-notes). |
@@ -41,14 +41,14 @@ The normalisation is implemented once, as a Zod transform shared by
 reads. There is no database constraint: the column is free-form text and the
 database neither indexes nor constrains it.
 
-`notes` is written both server-side and offline by the PWA, so it is part of
+`notes` is written both server-side and offline by the mobile app, so it is part of
 the `albums` Electric shape (see `docs/ELECTRICSQL.md`).
 
 ## Photos
 
 | Column | Type | Notes |
 | --- | --- | --- |
-| `id` | `uuid` | UUIDv7, primary key. Generated with `uuidv7()` from the `uuid` package so the PWA (a browser app) can mint ids offline. |
+| `id` | `uuid` | UUIDv7, primary key. Generated with `uuidv7()` from the `uuid` package so the mobile app can mint ids offline. |
 | `organization_id` | `text` | Foreign key to `auth.organization(id)`, `ON DELETE CASCADE`. Kept on the row so Electric can filter the table by tenant without a join. |
 | `album_id` | `uuid` | Part of the composite foreign key `(album_id, organization_id)` to `albums(id, organization_id)`. Every photo belongs to exactly one album in the same organisation. |
 | `position` | `integer` | Position of the photo in the album, starting at 1. Required, no default: the value is always explicit. |
@@ -89,10 +89,10 @@ every client.
 
 `photos` and `albums` are served as Electric shapes through the API proxy
 (see `docs/ELECTRICSQL.md`). The shapes filter by `organization_id` and
-include tombstones; the PWA filters `deleted_at is null` in live queries.
+include tombstones; the mobile app filters `deleted_at is null` in reads.
 
-The PWA creates photo rows offline, which is why the id, `position` and
-`captured_at` are supplied by the client. The PWA outbox posts them to
+The mobile app creates photo rows offline, which is why the id, `position` and
+`captured_at` are supplied by the client. The SQLite outbox posts them to
 `POST /api/sync/mutations`, which checks `organization_id` and the
 `version`/`base_version` pair.
 
@@ -100,7 +100,7 @@ The PWA creates photo rows offline, which is why the id, `position` and
 
 The image bytes are stored in three places over the life of a photo:
 
-1. **OPFS** — the local copy on the PWA device while the photo is offline.
+1. **Device filesystem** — the local copy in the mobile app's documents directory while the photo is offline. The legacy provider type name is `opfs` (see `docs/PHOTO_LOCATIONS.md`).
 2. **SeaweedFS** — the canonical copy in object storage, reached through
    pre-signed URLs issued by the API (see `docs/STORAGE.md`).
 3. **OneDrive / Google Drive** — an optional copy synced from the canonical

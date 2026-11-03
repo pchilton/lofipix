@@ -8,17 +8,20 @@
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
     "noEmit": true,
-    "jsx": "preserve",
-    "jsxImportSource": "solid-js",
+    "jsx": "react-jsx",
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "types": ["vite/client", "bun"],
+    "types": ["vite/client", "bun", "react", "react-dom"],
     "skipLibCheck": true,
     "isolatedModules": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
-  "include": ["src", ".storybook", "vitest.config.ts"]
+  "include": ["src", ".storybook", "vitest.config.ts"],
+  "exclude": ["src/icons/types-solid.d.ts"]
 }

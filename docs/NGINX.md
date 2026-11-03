@@ -19,7 +19,7 @@ server {
     ssl_certificate /etc/letsencrypt/live/oceania.lofipix.app/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/oceania.lofipix.app/privkey.pem;
 
-    # Electric shape streams. SSE and long-poll responses must not be buffered, or the PWA never receives live updates.
+    # Electric shape streams. SSE and long-poll responses must not be buffered, or the mobile app never receives live updates.
     location /api/sync/shapes/ {
         proxy_pass http://127.0.0.1:5634;
         proxy_http_version 1.1;

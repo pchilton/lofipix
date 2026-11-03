@@ -1,9 +1,9 @@
 import { defineConfig } from "vite";
 import solid from "vite-plugin-solid";
-import { iconsPlugin } from "@lofipix/ui/icons/vite";
+import { iconsPluginSolid } from "@lofipix/ui/icons/vite-solid";
 
 export default defineConfig({
-  plugins: [iconsPlugin(), solid()],
+  plugins: [iconsPluginSolid(), solid()],
   server: {
     host: "0.0.0.0",
     port: 5173,
