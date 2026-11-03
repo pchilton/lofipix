@@ -19,18 +19,7 @@ server {
     ssl_certificate /etc/letsencrypt/live/oceania.lofipix.app/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/oceania.lofipix.app/privkey.pem;
 
-    # Route 1: Direct standard API queries down to your Bun/Hono Server
-    location /api/ {
-        proxy_pass http://127.0.0.1:5634; # Assuming Hono matches this port
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-
-    # Route 1a: Electric shape streams. SSE and long-poll responses must not be
-    # buffered, or the PWA never receives live updates.
+    # Electric shape streams. SSE and long-poll responses must not be buffered, or the PWA never receives live updates.
     location /api/sync/shapes/ {
         proxy_pass http://127.0.0.1:5634;
         proxy_http_version 1.1;
@@ -42,7 +31,17 @@ server {
         proxy_send_timeout 3600s;
     }
 
-    # Route 2: Intercept and pass bucket requests through to SeaweedFS S3 API
+    # API queries down to your Bun/Hono Server
+    location /api/ {
+        proxy_pass http://127.0.0.1:5634; # Assuming Hono matches this port
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # Intercept and pass bucket requests through to SeaweedFS S3 API
     location /storage-oceania-lofipix/ {
         # Proxy straight to the SeaweedFS S3 component daemon port
         proxy_pass http://127.0.0.1:8333; 
@@ -62,8 +61,5 @@ server {
         # Lift standard upload boundaries so large payload packages pass cleanly
         client_max_body_size 500M;
     }
-
-    # ElectricSQL is not exposed publicly. It listens on loopback :5637 and is
-    # reached only by the API shape proxy.
 }
 ```
