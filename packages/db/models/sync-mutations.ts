@@ -1,8 +1,8 @@
 import { sql } from 'drizzle-orm';
 import {
-  check,
   index,
   jsonb,
+  pgEnum,
   pgTable,
   text,
   timestamp,
@@ -29,10 +29,10 @@ export const syncMutationStatuses = [
 
 export const syncMutationSchema = z.object({
   mutationId: z.uuid(),
-  table: z.enum(syncTables),
   operation: z.enum(syncOperationTypes),
-  recordId: z.uuid(),
-  baseVersion: z.number().int().nonnegative(),
+  tableName: z.enum(syncTables),
+  tableId: z.uuid(),
+  baseVersion: z.number().int().positive(),
   payload: z.record(z.string(), z.unknown()).default({}),
 });
 
@@ -43,38 +43,36 @@ export const syncMutationsRequestSchema = z.object({
 export const syncMutationResultSchema = z.object({
   mutationId: z.uuid(),
   status: z.enum(syncMutationStatuses),
-  version: z.number().int().positive().optional(),
-  row: z.record(z.string(), z.unknown()).nullable().optional(),
   error: z.string().optional(),
+  record: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
 export const syncMutationsResponseSchema = z.object({
   results: z.array(syncMutationResultSchema),
 });
 
+export const syncOperationType = pgEnum('sync_operation_type', [
+  ...syncOperationTypes,
+]);
+export const syncMutationStatus = pgEnum('sync_mutation_status', [
+  ...syncMutationStatuses,
+]);
 export const syncMutations = pgTable(
   'sync_mutations',
   {
     mutationId: uuid('mutation_id').primaryKey(),
-    organizationId: text('organization_id')
-      .notNull()
-      .references(() => authOrganization.id, { onDelete: 'cascade' }),
-    userId: text('user_id').notNull(),
+    organizationId: text('organization_id').notNull().references(() => authOrganization.id, { onDelete: 'cascade' }),
+    operation: syncOperationType('operation').notNull(),
     tableName: text('table_name').notNull(),
-    recordId: uuid('record_id').notNull(),
-    operation: text('operation').notNull(),
-    result: jsonb('result').notNull().default(sql`'{}'::jsonb`),
-    createdAt: timestamp('created_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    tableId: uuid('table_id').notNull(),
+    payload: jsonb('payload').notNull().default(sql`'{}'::jsonb`),
+    status: syncMutationStatus('status').notNull(),
+    error: text('error'),
+    record: jsonb('record').notNull().default(sql`'{}'::jsonb`),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index('sync_mutations_created_at_idx').on(table.createdAt),
     index('sync_mutations_organization_id_idx').on(table.organizationId),
-    check(
-      'sync_mutations_operation_valid',
-      sql`${table.operation} in ('insert', 'update', 'delete')`,
-    ),
   ],
 );
 

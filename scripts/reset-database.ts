@@ -29,8 +29,8 @@ async function resetSchemas(client: postgres.Sql): Promise<void> {
   await client.unsafe('DROP SCHEMA IF EXISTS auth CASCADE');
   await client.unsafe('DROP SCHEMA IF EXISTS drizzle CASCADE');
   await client.unsafe('CREATE SCHEMA public');
-  await client.unsafe('CREATE SCHEMA drizzle');
   await client.unsafe('CREATE SCHEMA auth');
+  await client.unsafe('CREATE SCHEMA drizzle');
 }
 
 async function syncAuthSchema(): Promise<void> {
