@@ -148,7 +148,6 @@ finds `/var/www/oceania.lofipix.app/.env.oceania` in the parent directory:
 ```sh
 cd /var/www/oceania.lofipix.app/scripts
 REGION=oceania bun run reset-database.ts
-REGION=oceania bun run electric.ts
 ```
 
 Adding a new `scripts/*.ts` file is enough; the workflow bundles and deploys it

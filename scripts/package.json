@@ -5,8 +5,7 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "seed": "bun seed-demo.ts",
-    "electric": "bun electric.ts"
+    "seed": "bun seed-demo.ts"
   },
   "dependencies": {
     "@lofipix/db": "workspace:*",

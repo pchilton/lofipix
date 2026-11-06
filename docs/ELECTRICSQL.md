@@ -21,8 +21,7 @@ The website does not use ElectricSQL or local persistence.
 
 - PostgreSQL 14+ with `wal_level = logical`.
 - A database role used by Electric with `REPLICATION`.
-- Docker and Docker Compose.
-- Bun for `scripts/electric.ts`.
+- Bun for `scripts/` (database reset only).
 
 Electric manages the `electric_publication_default` publication and adds
 tables to it automatically. If the Electric role cannot alter application
@@ -50,28 +49,58 @@ Configuration comes from `.env.<REGION>` (see `.env.example`):
 
 ## Start the service
 
-```bash
-cd scripts
-REGION=cholet bun run electric
+Install ElectricSQL natively on the host and run it under systemd (Debian 13 /
+Ubuntu 24.04). Electric is an Elixir release; build it from source or use a
+prebuilt release tarball, then install the binary:
+
+```sh
+sudo useradd -r -s /usr/sbin/nologin electric
+sudo mkdir -p /var/lib/electric /etc/electric
+sudo chown electric:electric /var/lib/electric
 ```
 
-`scripts/electric.ts` writes a temporary Compose file, starts
-`electricsql/electric` behind a Docker bridge network with a loopback-only
-port mapping (`127.0.0.1:5637 -> 3000`), a persistent `electric-data` volume
-mounted at `/var/lib/electric`, and waits for
-`http://127.0.0.1:5637/v1/health`. If `DATABASE_URL` points at `localhost` or
-`127.0.0.1`, the script rewrites the host to `host.docker.internal` so the
-container can reach PostgreSQL on the host.
+Create `/etc/default/electric` (mode 0640, owned by root:electric):
 
-Preview the generated file:
-
-```bash
-cd scripts
-REGION=cholet bun run electric -- --dry-run
+```sh
+DATABASE_URL=postgresql://electric:...@127.0.0.1:5432/lofipix
+ELECTRIC_SECRET=<long random secret>
+ELECTRIC_PORT=5637
+ELECTRIC_STORAGE_DIR=/var/lib/electric
+ELECTRIC_LOG_LEVEL=info
 ```
 
-Electric must not be exposed publicly. Only the API talks to it, over
-loopback. Logs: `docker logs -f electric`.
+Create `/etc/systemd/system/electric.service`:
+
+```ini
+[Unit]
+Description=ElectricSQL sync service
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=electric
+Group=electric
+EnvironmentFile=/etc/default/electric
+ExecStart=/usr/local/bin/electric start
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start:
+
+```sh
+sudo systemctl daemon-reload
+sudo systemctl enable --now electric
+curl -i http://127.0.0.1:5637/v1/health
+```
+
+Electric must not be exposed publicly; only the API talks to it over loopback.
+Logs: `journalctl -u electric -f`.
 
 ## Shape proxy
 
