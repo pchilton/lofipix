@@ -1,12 +1,9 @@
-import { sql } from 'drizzle-orm';
 import {
-  bigint,
-  check,
   index,
+  integer,
   pgTable,
   text,
   timestamp,
-  unique,
   uuid,
 } from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
@@ -18,23 +15,18 @@ import { authOrganization } from '../external/auth-tables';
 export const albums = pgTable(
   'albums',
   {
-    id: uuid('id')
-      .primaryKey()
-      .$defaultFn(() => uuidv7()),
-    organizationId: text('organization_id')
-      .notNull()
-      .references(() => authOrganization.id, { onDelete: 'cascade' }),
+    id: uuid('id').primaryKey().$defaultFn(() => uuidv7()),
+    organizationId: text('organization_id').notNull().references(() => authOrganization.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     notes: text('notes'),
-    version: bigint('version', { mode: 'number' }).notNull().default(1),
-    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    version: integer('version').notNull().default(1),
+    originatedAt: timestamp('originated_at', { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (table) => [
-    unique('albums_id_organization_unique').on(table.id, table.organizationId),
     index('albums_organization_id_idx').on(table.organizationId),
-    check('albums_version_positive', sql`${table.version} > 0`),
   ],
 );
 
@@ -50,6 +42,7 @@ export const normalizeNotes = (value: string): string | null => {
 };
 
 const albumRefinements = {
+  name: (schema: z.ZodString) => schema.min(1),
   notes: (schema: z.ZodString) => schema.transform(normalizeNotes),
 };
 
