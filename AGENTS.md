@@ -34,7 +34,7 @@ Read the relevant file when a task touches its area:
 - `docs/STORAGE.md` — SeaweedFS setup, buckets, auth, systemd service.
 - `docs/DEPLOYMENT.md` — deployment targets, domains, auth cookies.
 - `docs/NGINX.md` — nginx reverse proxy for API and storage.
-- `docs/UPTRACE.md` — self-hosted observability (Docker skeleton + instrumentation map).
+- `docs/UPTRACE.md` — self-hosted observability (host systemd install + instrumentation map).
 - `docs/SHADCN.md` — ShadCN web components in `packages/ui`: install flow, theme, Storybook, Vitest, consumption from `www/`.
 - `docs/ICONS.md` — Iconify icons: React components via unplugin-icons on the web and bundled data via react-native-svg in the mobile app.
 - `docs/PHOTOS.md` — the `photos` table: columns, constraints, soft deletes, sync and the backing stores holding the image bytes.
