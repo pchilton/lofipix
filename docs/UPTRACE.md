@@ -1,62 +1,110 @@
 # Uptrace
 
 Self-hosted observability for lofipix using Uptrace (OpenTelemetry backend: traces,
-metrics, logs). Run it locally via Docker; instrument the React website, the
-React Native mobile app, Hono API, PostgreSQL, SeaweedFS, image sync pipeline,
-and mobile outbox sync writes.
+metrics, logs). Install Uptrace and ClickHouse on the host and run them under
+systemd (Debian 13 / Ubuntu 24.04, amd64 and arm64). Reuse the existing
+PostgreSQL cluster for Uptrace metadata in a dedicated `uptrace` database.
+Instrument the React website, the React Native mobile app, Hono API, PostgreSQL,
+SeaweedFS, image sync pipeline, and mobile outbox sync writes.
 
-## Self-hosted Docker setup (skeleton)
+## PostgreSQL (existing cluster)
 
-```yaml
-# docker-compose.uptrace.yml (skeleton — fill in versions, volumes, passwords)
-services:
-  postgres:
-    image: postgres:16
-    environment:
-      POSTGRES_DB: uptrace
-      POSTGRES_USER: uptrace
-      POSTGRES_PASSWORD: changeme
-    volumes:
-      - uptrace-postgres:/var/lib/postgresql/data
-
-  clickhouse:
-    image: clickhouse/clickhouse-server:24-alpine
-    volumes:
-      - uptrace-clickhouse:/var/lib/clickhouse
-
-  uptrace:
-    image: uptrace/uptrace:latest
-    depends_on:
-      - postgres
-      - clickhouse
-    ports:
-      - "14317:14317" # OTLP gRPC
-      - "14318:14318" # OTLP HTTP
-      - "8888:8888"   # UI
-    environment:
-      CLICKHOUSE_ADDR: clickhouse:9000
-      POSTGRES_DSN: postgres://uptrace:changeme@postgres:5432/uptrace?sslmode=disable
-    volumes:
-      - ./uptrace.yml:/etc/uptrace/uptrace.yml
-
-volumes:
-  uptrace-postgres:
-  uptrace-clickhouse:
-```
-
-```yaml
-# uptrace.yml (skeleton)
-# projects:
-#   - id: 1
-#     name: lofipix
-#     token: <project-token>
-```
+Create a dedicated database and role in the shared cluster:
 
 ```sh
-docker compose -f docker-compose.uptrace.yml up -d
-# Open http://192.168.1.15:8888, create/use project token, then point
-# OTEL_EXPORTER_OTLP_ENDPOINT=http://192.168.1.15:14318 at it.
+sudo -u postgres psql <<'SQL'
+CREATE USER uptrace WITH PASSWORD 'changeme';
+CREATE DATABASE uptrace OWNER uptrace;
+SQL
 ```
+
+Uptrace needs its own database; do not share the lofipix application database or
+schema.
+
+## ClickHouse
+
+Install ClickHouse from the official repository:
+
+```sh
+curl -fsSL 'https://packages.clickhouse.com/rpm/lts/repodata/repomd.xml.key' | sudo gpg --dearmor -o /usr/share/keyrings/clickhouse-keyring.gpg
+echo 'deb [signed-by=/usr/share/keyrings/clickhouse-keyring.gpg] https://packages.clickhouse.com/deb stable main' | sudo tee /etc/apt/sources.list.d/clickhouse.list
+sudo apt-get update
+sudo apt-get install -y clickhouse-server clickhouse-client
+sudo systemctl enable --now clickhouse-server
+```
+
+ClickHouse listens on `127.0.0.1:9000` (native) and `8123` (HTTP). It stores
+telemetry data; keep it on a volume with adequate retention space.
+
+## Uptrace
+
+Install the Uptrace binary (download the release for your arch from the Uptrace
+releases page) to `/usr/local/bin/uptrace` and create a system user and config
+directory:
+
+```sh
+sudo useradd -r -s /usr/sbin/nologin uptrace
+sudo mkdir -p /etc/uptrace /var/lib/uptrace
+sudo chown uptrace:uptrace /var/lib/uptrace
+```
+
+Create `/etc/uptrace/uptrace.yml`:
+
+```yaml
+projects:
+  - id: 1
+    name: lofipix
+    token: <lofipix-project-token>
+  - id: 2
+    name: spaa
+    token: <spaa-project-token>
+```
+
+Create `/etc/default/uptrace` (mode 0640, owned by root:uptrace):
+
+```sh
+CLICKHOUSE_ADDR=127.0.0.1:9000
+POSTGRES_DSN=postgres://uptrace:changeme@127.0.0.1:5432/uptrace?sslmode=disable
+UPTRACE_CONFIG=/etc/uptrace/uptrace.yml
+```
+
+Create `/etc/systemd/system/uptrace.service`:
+
+```ini
+[Unit]
+Description=Uptrace observability backend
+After=network-online.target postgresql.service clickhouse-server.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=uptrace
+Group=uptrace
+EnvironmentFile=/etc/default/uptrace
+ExecStart=/usr/local/bin/uptrace --config=${UPTRACE_CONFIG}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start:
+
+```sh
+sudo systemctl daemon-reload
+sudo systemctl enable --now uptrace
+```
+
+Uptrace listens on `127.0.0.1:14317` (OTLP gRPC), `127.0.0.1:14318` (OTLP
+HTTP) and `127.0.0.1:8888` (UI). Point clients at the OTLP HTTP endpoint:
+
+```sh
+OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:14318
+```
+
+A single Uptrace instance supports multiple projects; each project has its own
+token and isolated data. Use one instance for "lofipix", "spaa", and others.
 
 ## Instrumentation map (initial entry)
 
@@ -69,7 +117,6 @@ docker compose -f docker-compose.uptrace.yml up -d
 | SeaweedFS        | HTTP/S3 client instrumentation or custom spans                         | Upload/download duration, object key, byte size          |
 | Image Sync       | Custom span                                                            | Conversion duration, page number, output dimensions      |
 | Outbox sync      | Custom span in the mobile app and API mutation handler                 | Accepted/rejected mutations, conflicts, retries, queue depth |
-```
 
 Notes:
 
