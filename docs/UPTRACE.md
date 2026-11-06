@@ -106,7 +106,12 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:14318
 A single Uptrace instance supports multiple projects; each project has its own
 token and isolated data. Use one instance for "lofipix", "spaa", and others.
 
-## Instrumentation map (initial entry)
+## Telemetry enrichment
+
+The Hono API proxies OTLP over `/api/telemetry/*` and injects `lofipix.user.id`
+and `lofipix.organization.id` as resource attributes (from the authenticated
+session) before forwarding to Uptrace. Clients should not send these attributes
+themselves. Uptrace dashboards and filters can group by these attributes.
 
 | Layer            | Instrumentation                                                        | Result                                                   |
 | ---------------- | ---------------------------------------------------------------------- | -------------------------------------------------------- |

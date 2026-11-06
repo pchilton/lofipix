@@ -31,6 +31,17 @@ server {
         proxy_send_timeout 3600s;
     }
 
+    # OTLP telemetry proxy (authenticated, forwarded to Uptrace internally)
+    location /api/telemetry/ {
+        proxy_pass http://127.0.0.1:5634;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_request_buffering off;
+        client_max_body_size 10M;
+    }
+
     # API queries down to your Bun/Hono Server
     location /api/ {
         proxy_pass http://127.0.0.1:5634; # Assuming Hono matches this port

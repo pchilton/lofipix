@@ -6,6 +6,7 @@ import { auth } from "@lofipix/db/auth";
 import { syncMutationsRequestSchema } from "@lofipix/db/schema";
 import { applySyncMutations } from "./sync-mutations";
 import { proxyShape } from "./sync-shapes";
+import { proxyOtlp } from "./otlp-proxy";
 
 const app = new Hono();
 
@@ -95,7 +96,13 @@ app.post("/api/sync/mutations", async (c) => {
   return c.json({ results });
 });
 
-app.get("/health", (c) => c.json({ status: "ok" }));
+app.on(["POST", "PUT"], "/api/telemetry/*", async (c) => {
+  const context = await requireSyncContext(c);
+  if ("error" in context) {
+    return context.error;
+  }
+  return proxyOtlp(c, context.organizationId, context.session.user.id);
+});
 app.get("/", (c) => c.json({ name: "lofipix api" }));
 app.get("/api/hello", (c) => c.json({ message: "hello from lofipix" }));
 
