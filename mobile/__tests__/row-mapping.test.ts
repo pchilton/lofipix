@@ -47,7 +47,7 @@ describe('sync payloads', () => {
         imageQuality: 82,
         imageSize: 200_000,
         imageChecksum: 'abc',
-        capturedAt: new Date(),
+        originatedAt: new Date(),
       }),
     ).toEqual({
       position: 2,

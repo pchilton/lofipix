@@ -3,7 +3,7 @@ import type { SyncTable } from '@lofipix/db/schema';
 import { getClient } from './db/client';
 import { syncTableObjects } from './db/schema';
 
-const DATE_FIELDS = new Set(['deletedAt', 'createdAt', 'updatedAt', 'capturedAt']);
+const DATE_FIELDS = new Set(['deletedAt', 'createdAt', 'updatedAt', 'originatedAt']);
 const JSON_FIELDS = new Set(['config']);
 const BOOLEAN_FIELDS = new Set(['outboxNeeded']);
 

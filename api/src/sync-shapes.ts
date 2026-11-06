@@ -23,6 +23,7 @@ export const shapeDefinitions: Record<SyncTable, ShapeDefinition> = {
       ...COMMON_COLUMNS,
       'name',
       'notes',
+      'originated_at',
     ],
   },
   photos: {
@@ -35,7 +36,7 @@ export const shapeDefinitions: Record<SyncTable, ShapeDefinition> = {
       'image_height',
       'image_quality',
       'image_size',
-      'captured_at',
+      'originated_at',
       'image_checksum',
     ],
   },
@@ -46,6 +47,7 @@ export const shapeDefinitions: Record<SyncTable, ShapeDefinition> = {
       'photo_id',
       'storage_provider_id',
       'object_key',
+      'originated_at',
     ],
   },
   storage_providers: {
@@ -56,6 +58,7 @@ export const shapeDefinitions: Record<SyncTable, ShapeDefinition> = {
       'label',
       'external_id',
       'config',
+      'originated_at',
     ],
   },
 };

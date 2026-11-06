@@ -108,7 +108,7 @@ async function seedAlbum(organizationId: string, album: SeedAlbum): Promise<void
     notes: album.notes === null ? null : normalizeNotes(album.notes),
   });
 
-  const capturedAt = new Date();
+  const originatedAt = new Date();
   await db.insert(photos).values(
     Array.from({ length: album.photoCount }, (_, index) => ({
       id: uuidv7(),
@@ -119,7 +119,7 @@ async function seedAlbum(organizationId: string, album: SeedAlbum): Promise<void
       imageHeight: 960,
       imageQuality: 80,
       imageSize: 240_000,
-      capturedAt,
+      originatedAt,
       imageChecksum: createHash('sha256').update(`${albumId}:${index + 1}`).digest('hex'),
     })),
   );

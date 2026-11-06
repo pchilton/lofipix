@@ -8,6 +8,7 @@ export const schemaStatements = [
     notes text,
     version integer not null default 1,
     outbox_needed integer not null default 0,
+    originated_at integer not null,
     deleted_at integer,
     created_at integer not null,
     updated_at integer not null
@@ -22,10 +23,10 @@ export const schemaStatements = [
     image_height integer not null,
     image_quality integer not null,
     image_size integer not null,
-    captured_at integer not null,
     image_checksum text,
     version integer not null default 1,
     outbox_needed integer not null default 0,
+    originated_at integer not null,
     deleted_at integer,
     created_at integer not null,
     updated_at integer not null
@@ -40,6 +41,7 @@ export const schemaStatements = [
     object_key text not null,
     version integer not null default 1,
     outbox_needed integer not null default 0,
+    originated_at integer not null,
     deleted_at integer,
     created_at integer not null,
     updated_at integer not null
@@ -55,6 +57,7 @@ export const schemaStatements = [
     config text not null default '{}',
     version integer not null default 1,
     outbox_needed integer not null default 0,
+    originated_at integer not null,
     deleted_at integer,
     created_at integer not null,
     updated_at integer not null

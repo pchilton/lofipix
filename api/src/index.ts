@@ -90,7 +90,6 @@ app.post("/api/sync/mutations", async (c) => {
 
   const results = await applySyncMutations(
     context.organizationId,
-    context.session.user.id,
     parsed.data.mutations,
   );
   return c.json({ results });

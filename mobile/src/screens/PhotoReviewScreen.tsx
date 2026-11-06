@@ -80,7 +80,7 @@ export function PhotoReviewScreen() {
         </View>
         <View style={styles.detailRow}>
           <AppText variant="muted">Captured</AppText>
-          <AppText variant="body">{photo.capturedAt.toLocaleString()}</AppText>
+          <AppText variant="body">{photo.originatedAt.toLocaleString()}</AppText>
         </View>
         <View style={styles.detailRow}>
           <AppText variant="muted">Checksum</AppText>

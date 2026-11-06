@@ -71,7 +71,7 @@ const photo = {
   imageHeight: 720,
   imageQuality: 82,
   imageSize: 200_000,
-  capturedAt: now,
+  originatedAt: now,
   imageChecksum: 'abcdef1234567890',
   version: 1,
   outboxNeeded: false,

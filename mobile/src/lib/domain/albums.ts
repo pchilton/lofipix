@@ -21,6 +21,7 @@ export async function createAlbum(
     notes: normalizeNotes(notes),
     version: 0,
     outboxNeeded: true,
+    originatedAt: now,
     deletedAt: null,
     createdAt: now,
     updatedAt: now,

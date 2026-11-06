@@ -54,7 +54,7 @@ const photoCreatePayload = photoInsertSchema
 
 const photoUpdatePayload = photoCreatePayload
   .partial()
-  .omit({ albumId: true, createdAt: true, capturedAt: true });
+  .omit({ albumId: true, createdAt: true, originatedAt: true });
 
 const photoLocationCreatePayload = photoLocationInsertSchema
   .extend({ createdAt: isoDate.optional() })
@@ -82,7 +82,7 @@ function normalizePayloadDates(
   payload: Record<string, unknown>,
 ): Record<string, unknown> {
   const next = { ...payload };
-  for (const field of ['createdAt', 'capturedAt']) {
+  for (const field of ['createdAt', 'updatedAt', 'originatedAt', 'deletedAt']) {
     if (typeof next[field] === 'string') {
       next[field] = new Date(next[field] as string);
     }
@@ -110,8 +110,7 @@ function applied(mutation: SyncMutation, row: Row): SyncMutationResult {
   return {
     mutationId: mutation.mutationId,
     status: 'applied',
-    version: row.version as number,
-    row: publicRow(mutation.table, row),
+    record: publicRow(mutation.tableName, row),
   };
 }
 
@@ -119,8 +118,7 @@ function conflict(mutation: SyncMutation, row: Row): SyncMutationResult {
   return {
     mutationId: mutation.mutationId,
     status: 'conflict',
-    version: row.version as number,
-    row: publicRow(mutation.table, row),
+    record: publicRow(mutation.tableName, row),
   };
 }
 
@@ -243,18 +241,19 @@ async function applyInsert(
 ): Promise<SyncMutationResult> {
   const now = new Date();
 
-  switch (mutation.table) {
+  switch (mutation.tableName) {
     case 'albums': {
       const payload = albumCreatePayload.parse(normalizePayloadDates(mutation.payload));
       const [row] = await tx
         .insert(albums)
         .values({
-          id: mutation.recordId,
+          id: mutation.tableId,
           organizationId,
           name: payload.name,
           notes: payload.notes ?? null,
           version: 1,
           deletedAt: null,
+          originatedAt: payload.originatedAt ? parseDate(payload.originatedAt) : now,
           createdAt: payload.createdAt ? parseDate(payload.createdAt) : now,
           updatedAt: now,
         })
@@ -263,7 +262,7 @@ async function applyInsert(
       if (row) {
         return applied(mutation, row);
       }
-      const current = await findRow(tx, mutation.table, organizationId, mutation.recordId);
+      const current = await findRow(tx, mutation.tableName, organizationId, mutation.tableId);
       return current ? conflict(mutation, current) : rejected(mutation, 'Album id is already in use.');
     }
     case 'photos': {
@@ -272,7 +271,7 @@ async function applyInsert(
       const [row] = await tx
         .insert(photos)
         .values({
-          id: mutation.recordId,
+          id: mutation.tableId,
           organizationId,
           albumId: payload.albumId,
           position: payload.position,
@@ -280,7 +279,7 @@ async function applyInsert(
           imageHeight: payload.imageHeight,
           imageQuality: payload.imageQuality,
           imageSize: payload.imageSize,
-          capturedAt: parseDate(payload.capturedAt),
+          originatedAt: payload.originatedAt ? parseDate(payload.originatedAt) : now,
           imageChecksum: payload.imageChecksum ?? null,
           version: 1,
           deletedAt: null,
@@ -292,7 +291,7 @@ async function applyInsert(
       if (row) {
         return applied(mutation, row);
       }
-      const current = await findRow(tx, mutation.table, organizationId, mutation.recordId);
+      const current = await findRow(tx, mutation.tableName, organizationId, mutation.tableId);
       return current ? conflict(mutation, current) : rejected(mutation, 'Photo id is already in use.');
     }
     case 'photo_locations': {
@@ -302,13 +301,14 @@ async function applyInsert(
       const [row] = await tx
         .insert(photoLocations)
         .values({
-          id: mutation.recordId,
+          id: mutation.tableId,
           organizationId,
           photoId: payload.photoId,
           storageProviderId: payload.storageProviderId,
           objectKey: payload.objectKey,
           version: 1,
           deletedAt: null,
+          originatedAt: payload.originatedAt ? parseDate(payload.originatedAt) : now,
           createdAt: payload.createdAt ? parseDate(payload.createdAt) : now,
           updatedAt: now,
         })
@@ -317,7 +317,7 @@ async function applyInsert(
       if (row) {
         return applied(mutation, row);
       }
-      const current = await findRow(tx, mutation.table, organizationId, mutation.recordId);
+      const current = await findRow(tx, mutation.tableName, organizationId, mutation.tableId);
       return current ? conflict(mutation, current) : rejected(mutation, 'Photo location id is already in use.');
     }
     case 'storage_providers': {
@@ -325,7 +325,7 @@ async function applyInsert(
       const [row] = await tx
         .insert(storageProviders)
         .values({
-          id: mutation.recordId,
+          id: mutation.tableId,
           organizationId,
           providerType: payload.providerType,
           label: payload.label,
@@ -334,6 +334,7 @@ async function applyInsert(
           encryptedData: {},
           version: 1,
           deletedAt: null,
+          originatedAt: payload.originatedAt ? parseDate(payload.originatedAt) : now,
           createdAt: payload.createdAt ? parseDate(payload.createdAt) : now,
           updatedAt: now,
         })
@@ -342,7 +343,7 @@ async function applyInsert(
       if (row) {
         return applied(mutation, row);
       }
-      const current = await findRow(tx, mutation.table, organizationId, mutation.recordId);
+      const current = await findRow(tx, mutation.tableName, organizationId, mutation.tableId);
       return current ? conflict(mutation, current) : rejected(mutation, 'Storage provider id is already in use.');
     }
   }
@@ -355,7 +356,7 @@ async function applyUpdate(
 ): Promise<SyncMutationResult> {
   const now = new Date();
 
-  switch (mutation.table) {
+  switch (mutation.tableName) {
     case 'albums': {
       const changes = albumUpdatePayload.parse(mutation.payload);
       if (Object.keys(changes).length === 0) {
@@ -364,7 +365,7 @@ async function applyUpdate(
           .set({ version: sql`${albums.version} + 1`, updatedAt: now })
           .where(
             and(
-              eq(albums.id, mutation.recordId),
+              eq(albums.id, mutation.tableId),
               eq(albums.organizationId, organizationId),
               eq(albums.version, mutation.baseVersion),
             ),
@@ -373,7 +374,7 @@ async function applyUpdate(
         if (row) {
           return applied(mutation, row);
         }
-        const current = await findRow(tx, mutation.table, organizationId, mutation.recordId);
+        const current = await findRow(tx, mutation.tableName, organizationId, mutation.tableId);
         return current ? conflict(mutation, current) : rejected(mutation, 'Album not found.');
       }
       const [row] = await tx
@@ -381,7 +382,7 @@ async function applyUpdate(
         .set({ ...changes, version: sql`${albums.version} + 1`, updatedAt: now })
         .where(
           and(
-            eq(albums.id, mutation.recordId),
+            eq(albums.id, mutation.tableId),
             eq(albums.organizationId, organizationId),
             eq(albums.version, mutation.baseVersion),
           ),
@@ -390,7 +391,7 @@ async function applyUpdate(
       if (row) {
         return applied(mutation, row);
       }
-      const current = await findRow(tx, mutation.table, organizationId, mutation.recordId);
+      const current = await findRow(tx, mutation.tableName, organizationId, mutation.tableId);
       return current ? conflict(mutation, current) : rejected(mutation, 'Album not found.');
     }
     case 'photos': {
@@ -401,7 +402,7 @@ async function applyUpdate(
           .set({ version: sql`${photos.version} + 1`, updatedAt: now })
           .where(
             and(
-              eq(photos.id, mutation.recordId),
+              eq(photos.id, mutation.tableId),
               eq(photos.organizationId, organizationId),
               eq(photos.version, mutation.baseVersion),
             ),
@@ -410,7 +411,7 @@ async function applyUpdate(
         if (row) {
           return applied(mutation, row);
         }
-        const current = await findRow(tx, mutation.table, organizationId, mutation.recordId);
+        const current = await findRow(tx, mutation.tableName, organizationId, mutation.tableId);
         return current ? conflict(mutation, current) : rejected(mutation, 'Photo not found.');
       }
       const [row] = await tx
@@ -418,7 +419,7 @@ async function applyUpdate(
         .set({ ...changes, version: sql`${photos.version} + 1`, updatedAt: now })
         .where(
           and(
-            eq(photos.id, mutation.recordId),
+            eq(photos.id, mutation.tableId),
             eq(photos.organizationId, organizationId),
             eq(photos.version, mutation.baseVersion),
           ),
@@ -427,7 +428,7 @@ async function applyUpdate(
       if (row) {
         return applied(mutation, row);
       }
-      const current = await findRow(tx, mutation.table, organizationId, mutation.recordId);
+      const current = await findRow(tx, mutation.tableName, organizationId, mutation.tableId);
       return current ? conflict(mutation, current) : rejected(mutation, 'Photo not found.');
     }
     case 'photo_locations': {
@@ -438,7 +439,7 @@ async function applyUpdate(
           .set({ version: sql`${photoLocations.version} + 1`, updatedAt: now })
           .where(
             and(
-              eq(photoLocations.id, mutation.recordId),
+              eq(photoLocations.id, mutation.tableId),
               eq(photoLocations.organizationId, organizationId),
               eq(photoLocations.version, mutation.baseVersion),
             ),
@@ -447,7 +448,7 @@ async function applyUpdate(
         if (row) {
           return applied(mutation, row);
         }
-        const current = await findRow(tx, mutation.table, organizationId, mutation.recordId);
+        const current = await findRow(tx, mutation.tableName, organizationId, mutation.tableId);
         return current ? conflict(mutation, current) : rejected(mutation, 'Photo location not found.');
       }
       const [row] = await tx
@@ -455,7 +456,7 @@ async function applyUpdate(
         .set({ ...changes, version: sql`${photoLocations.version} + 1`, updatedAt: now })
         .where(
           and(
-            eq(photoLocations.id, mutation.recordId),
+            eq(photoLocations.id, mutation.tableId),
             eq(photoLocations.organizationId, organizationId),
             eq(photoLocations.version, mutation.baseVersion),
           ),
@@ -464,7 +465,7 @@ async function applyUpdate(
       if (row) {
         return applied(mutation, row);
       }
-      const current = await findRow(tx, mutation.table, organizationId, mutation.recordId);
+      const current = await findRow(tx, mutation.tableName, organizationId, mutation.tableId);
       return current ? conflict(mutation, current) : rejected(mutation, 'Photo location not found.');
     }
     case 'storage_providers': {
@@ -475,7 +476,7 @@ async function applyUpdate(
           .set({ version: sql`${storageProviders.version} + 1`, updatedAt: now })
           .where(
             and(
-              eq(storageProviders.id, mutation.recordId),
+              eq(storageProviders.id, mutation.tableId),
               eq(storageProviders.organizationId, organizationId),
               eq(storageProviders.version, mutation.baseVersion),
             ),
@@ -484,7 +485,7 @@ async function applyUpdate(
         if (row) {
           return applied(mutation, row);
         }
-        const current = await findRow(tx, mutation.table, organizationId, mutation.recordId);
+        const current = await findRow(tx, mutation.tableName, organizationId, mutation.tableId);
         return current ? conflict(mutation, current) : rejected(mutation, 'Storage provider not found.');
       }
       const [row] = await tx
@@ -492,7 +493,7 @@ async function applyUpdate(
         .set({ ...changes, version: sql`${storageProviders.version} + 1`, updatedAt: now })
         .where(
           and(
-            eq(storageProviders.id, mutation.recordId),
+            eq(storageProviders.id, mutation.tableId),
             eq(storageProviders.organizationId, organizationId),
             eq(storageProviders.version, mutation.baseVersion),
           ),
@@ -501,7 +502,7 @@ async function applyUpdate(
       if (row) {
         return applied(mutation, row);
       }
-      const current = await findRow(tx, mutation.table, organizationId, mutation.recordId);
+      const current = await findRow(tx, mutation.tableName, organizationId, mutation.tableId);
       return current ? conflict(mutation, current) : rejected(mutation, 'Storage provider not found.');
     }
   }
@@ -514,14 +515,14 @@ async function applyDelete(
 ): Promise<SyncMutationResult> {
   const now = new Date();
 
-  switch (mutation.table) {
+  switch (mutation.tableName) {
     case 'albums': {
       const [row] = await tx
         .update(albums)
         .set({ deletedAt: now, version: sql`${albums.version} + 1`, updatedAt: now })
         .where(
           and(
-            eq(albums.id, mutation.recordId),
+            eq(albums.id, mutation.tableId),
             eq(albums.organizationId, organizationId),
             eq(albums.version, mutation.baseVersion),
           ),
@@ -530,7 +531,7 @@ async function applyDelete(
       if (row) {
         return applied(mutation, row);
       }
-      const current = await findRow(tx, mutation.table, organizationId, mutation.recordId);
+      const current = await findRow(tx, mutation.tableName, organizationId, mutation.tableId);
       return current ? conflict(mutation, current) : rejected(mutation, 'Album not found.');
     }
     case 'photos': {
@@ -539,7 +540,7 @@ async function applyDelete(
         .set({ deletedAt: now, version: sql`${photos.version} + 1`, updatedAt: now })
         .where(
           and(
-            eq(photos.id, mutation.recordId),
+            eq(photos.id, mutation.tableId),
             eq(photos.organizationId, organizationId),
             eq(photos.version, mutation.baseVersion),
           ),
@@ -548,7 +549,7 @@ async function applyDelete(
       if (row) {
         return applied(mutation, row);
       }
-      const current = await findRow(tx, mutation.table, organizationId, mutation.recordId);
+      const current = await findRow(tx, mutation.tableName, organizationId, mutation.tableId);
       return current ? conflict(mutation, current) : rejected(mutation, 'Photo not found.');
     }
     case 'photo_locations': {
@@ -561,7 +562,7 @@ async function applyDelete(
         })
         .where(
           and(
-            eq(photoLocations.id, mutation.recordId),
+            eq(photoLocations.id, mutation.tableId),
             eq(photoLocations.organizationId, organizationId),
             eq(photoLocations.version, mutation.baseVersion),
           ),
@@ -570,7 +571,7 @@ async function applyDelete(
       if (row) {
         return applied(mutation, row);
       }
-      const current = await findRow(tx, mutation.table, organizationId, mutation.recordId);
+      const current = await findRow(tx, mutation.tableName, organizationId, mutation.tableId);
       return current ? conflict(mutation, current) : rejected(mutation, 'Photo location not found.');
     }
     case 'storage_providers': {
@@ -583,7 +584,7 @@ async function applyDelete(
         })
         .where(
           and(
-            eq(storageProviders.id, mutation.recordId),
+            eq(storageProviders.id, mutation.tableId),
             eq(storageProviders.organizationId, organizationId),
             eq(storageProviders.version, mutation.baseVersion),
           ),
@@ -592,7 +593,7 @@ async function applyDelete(
       if (row) {
         return applied(mutation, row);
       }
-      const current = await findRow(tx, mutation.table, organizationId, mutation.recordId);
+      const current = await findRow(tx, mutation.tableName, organizationId, mutation.tableId);
       return current ? conflict(mutation, current) : rejected(mutation, 'Storage provider not found.');
     }
   }
@@ -600,7 +601,6 @@ async function applyDelete(
 
 async function applyMutation(
   organizationId: string,
-  userId: string,
   mutation: SyncMutation,
 ): Promise<SyncMutationResult> {
   try {
@@ -610,29 +610,41 @@ async function applyMutation(
         .values({
           mutationId: mutation.mutationId,
           organizationId,
-          userId,
-          tableName: mutation.table,
-          recordId: mutation.recordId,
           operation: mutation.operation,
-          result: {},
+          tableName: mutation.tableName,
+          tableId: mutation.tableId,
+          payload: mutation.payload ?? {},
+          status: 'applied',
+          error: null,
+          record: {},
         })
         .onConflictDoNothing()
         .returning({ mutationId: syncMutations.mutationId });
 
       if (claimed.length === 0) {
         const [existing] = await tx
-          .select({ result: syncMutations.result })
+          .select({
+            result: syncMutations.record,
+            status: syncMutations.status,
+            error: syncMutations.error,
+          })
           .from(syncMutations)
           .where(eq(syncMutations.mutationId, mutation.mutationId))
           .limit(1);
-        const stored = existing?.result as SyncMutationResult | undefined;
-        if (stored?.status) {
-          return { ...stored, mutationId: mutation.mutationId, status: 'duplicate' };
+        const record = (existing?.result as Row | undefined) ?? null;
+        if (existing?.status) {
+          return {
+            mutationId: mutation.mutationId,
+            status: 'duplicate',
+            error: existing.error ?? undefined,
+            record,
+          };
         }
         return {
           mutationId: mutation.mutationId,
           status: 'duplicate',
           error: 'This mutation is already being processed. Retry shortly.',
+          record: null,
         };
       }
 
@@ -647,7 +659,11 @@ async function applyMutation(
 
       await tx
         .update(syncMutations)
-        .set({ result })
+        .set({
+          status: result.status,
+          error: result.error ?? null,
+          record: (result.record ?? {}) as Row,
+        })
         .where(eq(syncMutations.mutationId, mutation.mutationId));
 
       return result;
@@ -656,7 +672,7 @@ async function applyMutation(
     if (error instanceof z.ZodError) {
       return rejected(
         mutation,
-        `Invalid ${mutation.table} payload: ${error.issues
+        `Invalid ${mutation.tableName} payload: ${error.issues
           .map((issue) => issue.message)
           .join('; ')}`,
       );
@@ -670,12 +686,11 @@ async function applyMutation(
 
 export async function applySyncMutations(
   organizationId: string,
-  userId: string,
   mutations: SyncMutation[],
 ): Promise<SyncMutationResult[]> {
   const results: SyncMutationResult[] = [];
   for (const mutation of mutations) {
-    results.push(await applyMutation(organizationId, userId, mutation));
+    results.push(await applyMutation(organizationId, mutation));
   }
   return results;
 }

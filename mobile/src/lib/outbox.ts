@@ -36,7 +36,6 @@ import {
   fullUpdatePayload,
   insertPayload,
   normalizeServerRow,
-  updateLocalRow,
   updatePayload,
   upsertLocalRow,
 } from './row-mapping';
@@ -286,14 +285,6 @@ async function applyServerRow(table: SyncTable, row: Record<string, unknown>): P
   await upsertLocalRow(table, normalizeServerRow(row));
 }
 
-async function applyServerFields(
-  table: SyncTable,
-  recordId: string,
-  fields: Record<string, unknown>,
-): Promise<void> {
-  await updateLocalRow(table, recordId, normalizeServerRow({ ...fields, outboxNeeded: false }));
-}
-
 async function retargetPending(recordId: string, version: number): Promise<void> {
   await getDb()
     .update(outbox)
@@ -301,32 +292,34 @@ async function retargetPending(recordId: string, version: number): Promise<void>
     .where(and(eq(outbox.recordId, recordId), inArray(outbox.status, PENDING_STATUSES)));
 }
 
+function resultVersion(result: SyncMutationResult): number | null {
+  const version = result.record?.version;
+  return typeof version === 'number' && Number.isFinite(version) ? version : null;
+}
+
 async function handleResult(row: OutboxRow, result: SyncMutationResult): Promise<void> {
   const table = row.tableName as SyncTable;
+  const version = resultVersion(result);
 
   if (result.status === 'applied') {
-    if (result.row) {
-      await applyServerRow(table, result.row);
-    } else if (result.version != null) {
-      await applyServerFields(table, row.recordId, { version: result.version, updatedAt: new Date() });
+    if (result.record) {
+      await applyServerRow(table, result.record);
     }
     await getDb().delete(outbox).where(eq(outbox.id, row.id));
-    if (result.version != null) {
-      await retargetPending(row.recordId, result.version);
+    if (version != null) {
+      await retargetPending(row.recordId, version);
     }
     bumpRevision();
     return;
   }
 
   if (result.status === 'duplicate') {
-    if (result.version != null) {
-      if (result.row) {
-        await applyServerRow(table, result.row);
-      } else {
-        await applyServerFields(table, row.recordId, { version: result.version, updatedAt: new Date() });
-      }
+    if (result.record) {
+      await applyServerRow(table, result.record);
+    }
+    if (version != null) {
       await getDb().delete(outbox).where(eq(outbox.id, row.id));
-      await retargetPending(row.recordId, result.version);
+      await retargetPending(row.recordId, version);
       bumpRevision();
       return;
     }
@@ -343,10 +336,8 @@ async function handleResult(row: OutboxRow, result: SyncMutationResult): Promise
   }
 
   if (result.status === 'conflict') {
-    if (result.row) {
-      await applyServerRow(table, result.row);
-    } else if (result.version != null) {
-      await applyServerFields(table, row.recordId, { version: result.version, updatedAt: new Date() });
+    if (result.record) {
+      await applyServerRow(table, result.record);
     }
     await getDb().delete(outbox).where(eq(outbox.recordId, row.recordId));
     await markRecordClean(table, row.recordId);
@@ -427,9 +418,9 @@ export async function flushOutbox(): Promise<void> {
       prepared.push({ ...row, baseVersion });
       mutations.push({
         mutationId: row.id,
-        table: row.tableName as SyncTable,
+        tableName: row.tableName as SyncTable,
         operation: row.operation as SyncMutation['operation'],
-        recordId: row.recordId,
+        tableId: row.recordId,
         baseVersion,
         payload: parsePayload(row.payload),
       });
