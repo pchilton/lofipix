@@ -12,8 +12,6 @@ import { z } from 'zod';
 import { v7 as uuidv7 } from 'uuid';
 
 import { authOrganization } from '../external/auth-tables';
-import { photos } from './photo';
-import { storageProviders } from './storage-provider';
 
 export const photoLocations = pgTable(
   'photo_locations',
@@ -31,16 +29,6 @@ export const photoLocations = pgTable(
   },
   (table) => [
     index('photo_locations_organization_id_idx').on(table.organizationId),
-    foreignKey({
-      columns: [table.photoId, table.organizationId],
-      foreignColumns: [photos.id, photos.organizationId],
-      name: 'photo_locations_photo_organization_fk',
-    }).onDelete('cascade'),
-    foreignKey({
-      columns: [table.storageProviderId, table.organizationId],
-      foreignColumns: [storageProviders.id, storageProviders.organizationId],
-      name: 'photo_locations_provider_organization_fk',
-    }).onDelete('cascade'),
     index('photo_locations_storage_provider_id_idx').on(table.storageProviderId),
     index('photo_locations_photo_id_idx').on(table.photoId),
   ],

@@ -12,14 +12,13 @@ import { z } from 'zod';
 import { v7 as uuidv7 } from 'uuid';
 
 import { authOrganization } from '../external/auth-tables';
-import { albums } from './album';
 
 export const photos = pgTable(
   'photos',
   {
     id: uuid('id').primaryKey().$defaultFn(() => uuidv7()),
     organizationId: text('organization_id').notNull().references(() => authOrganization.id, { onDelete: 'cascade' }),
-    albumId: uuid('album_id').notNull().references(() => albums.id, { onDelete: 'cascade' }),
+    albumId: uuid('album_id').notNull(),
     position: integer('position').notNull(),
     imageWidth: integer('image_width').notNull(),
     imageHeight: integer('image_height').notNull(),
@@ -33,11 +32,6 @@ export const photos = pgTable(
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (table) => [
-    foreignKey({
-      columns: [table.albumId, table.organizationId],
-      foreignColumns: [albums.id, albums.organizationId],
-      name: 'photos_album_organization_fk',
-    }).onDelete('cascade'),
     index('photos_album_id_idx').on(table.albumId),
     index('photos_organization_id_idx').on(table.organizationId),
   ],
