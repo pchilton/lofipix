@@ -123,7 +123,6 @@ jobs:
           ssh $SSH_OPTS "$DEPLOY_USER@$DEPLOY_HOST" \
             "test -f '$DEPLOY_PATH/.env.oceania' \
              && test -f '$DEPLOY_PATH/scripts/reset-database.ts' \
-             && test -f '$DEPLOY_PATH/scripts/powersync.ts' \
              && test -f '$DEPLOY_PATH/packages/db/drizzle.config.js' \
              && test -f '$DEPLOY_PATH/packages/db/node_modules/drizzle-kit/bin.cjs' \
              && test -x '$DEPLOY_PATH/packages/db/node_modules/@esbuild/linux-arm64/bin/esbuild' \
