@@ -100,7 +100,7 @@ The mobile app creates photo rows offline, which is why the id, `position` and
 
 The image bytes are stored in three places over the life of a photo:
 
-1. **Device filesystem** — the local copy in the mobile app's documents directory while the photo is offline. The legacy provider type name is `opfs` (see `docs/PHOTO_LOCATIONS.md`).
+1. **Device filesystem** — the local copy in the mobile app's documents directory while the photo is offline. `app_fs` or `opfs` (see `docs/PHOTO_LOCATIONS.md`).
 2. **SeaweedFS** — the canonical copy in object storage, reached through
    pre-signed URLs issued by the API (see `docs/STORAGE.md`).
 3. **OneDrive / Google Drive** — an optional copy synced from the canonical

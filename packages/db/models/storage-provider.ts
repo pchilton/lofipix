@@ -15,7 +15,7 @@ import { v7 as uuidv7 } from 'uuid';
 
 import { authOrganization } from '../external/auth-tables';
 
-const providerTypeValues = ['opfs', 's3', 'onedrive', 'google_drive'] as const;
+const providerTypeValues = ['opfs', 'app_fs', 's3', 'onedrive', 'google_drive'] as const;
 export const storageProviderType = pgEnum('storage_provider_type', [ ...providerTypeValues ]);
 const providerTypeSchema = z.enum(providerTypeValues);
 

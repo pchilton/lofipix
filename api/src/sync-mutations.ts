@@ -21,7 +21,7 @@ type Row = Record<string, unknown>;
 
 export class SyncForbiddenError extends Error {}
 
-const providerTypeSchema = z.enum(['opfs', 's3', 'onedrive', 'google_drive']);
+const providerTypeSchema = z.enum(['opfs', 'app_fs', 's3', 'onedrive', 'google_drive']);
 const configSchema = z.record(z.string(), z.unknown());
 const isoDate = z.string().datetime();
 

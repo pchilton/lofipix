@@ -38,7 +38,7 @@ Read the relevant file when a task touches its area:
 - `docs/SHADCN.md` — ShadCN web components in `packages/ui`: install flow, theme, Storybook, Vitest, consumption from `www/`.
 - `docs/ICONS.md` — Iconify icons: React components via unplugin-icons on the web and bundled data via react-native-svg in the mobile app.
 - `docs/PHOTOS.md` — the `photos` table: columns, constraints, soft deletes, sync and the backing stores holding the image bytes.
-- `docs/PHOTO_LOCATIONS.md` — storage providers and photo locations: how device-local (`opfs`), SeaweedFS, OneDrive and Google Drive copies are recorded, verified, synced and cleaned up; credential encryption.
+- `docs/PHOTO_LOCATIONS.md` — storage providers and photo locations: how PWA local (`opfs`), App local (`app_fs`), SeaweedFS, OneDrive and Google Drive copies are recorded, verified, synced and cleaned up; credential encryption.
 
 ## Non-negotiables
 
