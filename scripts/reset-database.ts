@@ -21,7 +21,6 @@ const EXPECTED_PUBLIC_TABLES = [
   'photos',
   'storage_providers',
   'photo_locations',
-  'sync_mutations',
 ];
 
 async function resetSchemas(client: postgres.Sql): Promise<void> {

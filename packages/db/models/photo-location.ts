@@ -27,7 +27,6 @@ export const photoLocations = pgTable(
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (table) => [
-    index('photo_locations_organization_id_idx').on(table.organizationId),
     index('photo_locations_storage_provider_id_idx').on(table.storageProviderId),
     index('photo_locations_photo_id_idx').on(table.photoId),
   ],

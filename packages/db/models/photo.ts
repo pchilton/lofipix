@@ -31,7 +31,6 @@ export const photos = pgTable(
   },
   (table) => [
     index('photos_album_id_idx').on(table.albumId),
-    index('photos_organization_id_idx').on(table.organizationId),
   ],
 );
 
