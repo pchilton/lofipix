@@ -7,7 +7,7 @@ source of truth; the mobile client is local-first and offline-capable.
 ## Website (`/www`)
 
 Public website: product description, organisation signup, billing, account management.
-A plain static site: no service worker, no ElectricSQL sync, no local persistence.
+A plain static site: no service worker, no sync engine, no local persistence.
 
 - UI Framework & Build Tools: React + Vite (with `@vitejs/plugin-react`) under a unified Bun workspace monorepo structure.
 - Routing: TanStack Router (React) managing type-safe client-side routes, layout-level auth guards, and static export. No TanStack Start / SSR.
@@ -30,13 +30,13 @@ SolidJS PWA; there is no web build.
 - UI Framework & Build Tools: bare React Native CLI (no Expo runtime), TypeScript, Bun for workspace scripts and package management. Generated `android/` and `ios/` projects are committed.
 - Routing: React Navigation native-stack with typed route params and auth-gated screen groups.
 - Design System: React Native primitives with `StyleSheet` and a shared token module for colour, spacing, radii and typography. `packages/ui` is web-only and is not imported.
-- Local Database: embedded SQLite via `@op-engineering/op-sqlite`, accessed with Drizzle ORM.
-- Sync Engine: ElectricSQL streams PostgreSQL table shapes through an authenticated API proxy. A custom writer applies shape messages to SQLite. A SQLite-backed outbox sends local mutations to `POST /api/sync/mutations` with version checks and server-side idempotency.
-- Non-synced State: TanStack Query (React) for local SQLite query caching and non-synced API state, with automatic retry logic. Auth uses the Better Auth client. No direct `fetch()` calls in components; use typed API modules.
+- Local Database: embedded SQLite via `@op-engineering/op-sqlite`, owned by the PowerSync React Native SDK.
+- Sync Engine: self-hosted PowerSync replicates PostgreSQL tables through Sync Streams. The app connects with a short-lived JWT (`organization_id` claim), writes go through PowerSync's durable upload queue to `POST /api/sync/upload`, and the connector rebases stale edits onto newer server rows.
+- Data Access: TanStack DB collections over the PowerSync SQLite database are the read/write layer; screens use live queries. Auth and non-synced API state use the Better Auth client and typed API modules. No direct `fetch()` calls in components.
 - Forms: TanStack Form (React) + Zod.
 - Client State: React state and context for local UI state.
 - Device Storage: app documents directory for photo bytes; `react-native-keychain` for bearer tokens; AsyncStorage for the non-secret cached session profile.
-- Soft Deletes: Tables use tombstones / soft-delete rows so deletes propagate through sync instead of disappearing.
+- Soft Deletes: Tables use tombstones / soft-delete rows; PowerSync streams include them and the app filters `deleted_at is null` in reads.
 - Validation: Every API response and database record has a Zod schema. TypeScript strict; no `any` in domain models.
 - Async UX: Every async operation has explicit loading, error, success, and offline states.
 - Authentication Hooks: Better Auth bearer tokens; the API accepts both cookie sessions (website) and bearer sessions (mobile).
@@ -51,11 +51,11 @@ filters client sync windows, hosts the application gateway, and issues storage c
 - Core API Gateway: Hono running natively on the Bun runtime. This is the source of truth for all domain data.
 - Data Persistence: PostgreSQL as the source of truth.
 - Database Management: Drizzle ORM for application tables in `public` (schema-as-source-of-truth, synced with `drizzle-kit push`); Better Auth syncs its own tables into the `auth` schema (see `docs/AUTHENTICATION.md`).
-- Soft Deletes: Tombstone / soft-delete rows on synced tables so Electric shapes and mobile clients converge correctly.
+- Soft Deletes: Tombstone / soft-delete rows on synced tables so PowerSync and mobile clients converge correctly.
 - Validation: Every API response and database record has a Zod schema, shared from `packages/db/models/`.
 - Authentication Backend: Better Auth (config in `packages/db/auth.ts`, tables in the `auth` schema). Cookie sessions serve the website; the bearer plugin serves the mobile app. See `docs/AUTHENTICATION.md` for methods and plugins.
-- Authorization Engine: enforced via the Better Auth organisation plugin (organisation / member tables in the `auth` schema). See `docs/AUTHENTICATION.md`.
-- Data Replication: ElectricSQL sitting alongside PostgreSQL, tracking WAL changes and serving table shapes to the API proxy for mobile clients.
+- Authorization Engine: enforced via the Better Auth organisation plugin (organisation / member tables in the `auth` schema). Mobile sync tokens carry an `organization_id` claim minted from the user's single active organisation. See `docs/AUTHENTICATION.md` and `docs/POWERSYNC.md`.
+- Data Replication: PowerSync replicates PostgreSQL through logical replication and Postgres-backed bucket storage; JWTs scope each sync stream to one organisation.
 - Background Jobs: pgmq (Postgres-hosted queue) for async work such as image conversion.
 - Reverse Proxy: Nginx as a high-performance proxy handling TLS termination (HTTPS) at the edge.
 - Storage: SeaweedFS (S3-compatible object storage) with path buckets behind nginx. Private buckets. All uploads/downloads use API-generated pre-signed URLs.
@@ -75,7 +75,7 @@ filters client sync windows, hosts the application gateway, and issues storage c
 - TanStack Query for server state (auth, uploads, non-synced API state) with automatic retry.
 - TanStack Form + Zod for forms.
 - Website: TanStack Router, ShadCN + Tailwind, React state for ephemeral UI state.
-- Mobile: React Navigation, StyleSheet tokens, React state for ephemeral UI state; synced reads come from SQLite.
+- Mobile: React Navigation, StyleSheet tokens, React state for ephemeral UI state; synced reads come from TanStack DB collections over PowerSync SQLite.
 - Every async operation surfaces loading, error, success, and offline states.
 
 # Communication channels
@@ -89,14 +89,16 @@ Website ↔ Server API Gateway
 
 Mobile Read-Path Data Sync (Server → Mobile)
 
-- Protocol: ElectricSQL shape streams (`/v1/shape`) proxied by Hono at `GET/POST /api/sync/shapes/:table`. The API injects the organisation filter, column projection and Electric secret; clients never hold an Electric URL or secret.
-- Data Boundary Control: Clients authenticate with a Better Auth bearer token (or cookie session); Hono resolves the active organisation and streams only rows matching `organization_id`. Deletes arrive as tombstone rows and are filtered by `deleted_at is null` in reads.
-- Local Reactivity: A custom writer applies Electric messages to SQLite; screens re-query through a small change notifier, including offline states.
+- Protocol: PowerSync Sync Streams at `https://<region>.lofipix.app/powersync/`. The service listens on loopback; nginx terminates TLS and supports WebSocket upgrade.
+- Data Boundary Control: `POST /api/sync/token` authenticates the Better Auth session, requires exactly one active organisation and signs a 5-minute JWT with an `organization_id` claim. PowerSync verifies it against the API JWKS (`audience: powersync`). `albums` and `storage_providers` filter directly on `organization_id`; `photos` and `photo_locations` join through `albums`. `storage_providers.encrypted_data` is never selected.
+- Local Reactivity: PowerSync owns SQLite; TanStack DB collections provide live queries and optimistic writes, including offline states.
+- Deletes: Tombstones are synced; reads filter `deleted_at is null`.
 
 Mobile Write-Path Mutations (Mobile → Server)
 
-- Protocol: A SQLite outbox posts batched mutations to `POST /api/sync/mutations` with a client mutation id, `base_version` and payload. Retries use exponential backoff; the server records mutation ids in `sync_mutations` for idempotency.
-- Path Flow: Mutations resolve in Hono against PostgreSQL with per-row version checks, then fan back out through Electric shapes. Conflicts replace the local row with the server row; rejected mutations become `dead`.
+- Protocol: PowerSync's durable upload queue posts CRUD batches to `POST /api/sync/upload` with the operation, table, row id, changed columns, `baseVersion` and the PowerSync client id.
+- Path Flow: Hono validates shared Zod schemas, resolves tenancy through the parent album, applies version-checked writes and soft deletes, and returns per-entry results. There is no client-side mutation queue and no server receipts table; uploads are idempotent by natural key.
+- Conflicts: a `409` returns the current row/version; the connector writes the server row locally, re-applies the pending changed columns with the new version and lets PowerSync enqueue a fresh upload. Rebase is silent; only a failed rebase surfaces a sync error.
 - Binary Uploads: Images are written to the app documents directory locally, then uploaded to SeaweedFS via API-issued pre-signed URLs in a later task; conversion metadata (dimensions, page number, duration) is tracked as a custom Uptrace span.
 
 Image / Object Storage

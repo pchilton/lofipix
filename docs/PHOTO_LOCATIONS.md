@@ -40,7 +40,6 @@ erDiagram
 
     photo_locations {
         uuid id PK
-        text organization_id FK
         uuid photo_id FK
         uuid storage_provider_id FK
         text object_key
@@ -59,10 +58,9 @@ Relationships:
   to exactly one organisation.
 - A photo has zero or more locations, at most one live location per provider.
 - A provider can hold locations for many photos.
-- Locations carry `organization_id` so Electric can filter the table without
-  a join. Composite foreign keys (`(photo_id, organization_id)` and
-  `(storage_provider_id, organization_id)`) guarantee the location, photo and
-  provider all belong to the same organisation.
+- Locations have no `organization_id`; tenancy follows the parent photo and its
+  album. The API checks that the photo and provider resolve to the caller's
+  organisation before accepting a location.
 
 ## Models
 
@@ -91,8 +89,8 @@ ids offline.
 | `provider_type` | `storage_provider_type` | Not null. Enum: `opfs`, `app_fs`, `s3`, `onedrive`, `google_drive`. |
 | `label` | `text` | Human-readable name shown in the UI, e.g. "LoFi Pix cloud", "Paul's OneDrive", "Pixel 8". Not null. |
 | `external_id` | `text` | Not null. Provider-native identity. See [Provider identity](#provider-identity). |
-| `config` | `jsonb` | Not null, default `{}`. Public, non-secret provider settings. Synced to the mobile app as part of the `storage_providers` shape. |
-| `encrypted_data` | `jsonb` | Not null, default `{}`. Server-only object of individually encrypted secret fields. Excluded from the Electric shape and never accepted from clients. |
+| `config` | `jsonb` | Not null, default `{}`. Public, non-secret provider settings. Synced to the mobile app as part of the `storage_providers` sync stream. |
+| `encrypted_data` | `jsonb` | Not null, default `{}`. Server-only object of individually encrypted secret fields. Excluded from the PowerSync stream and never accepted from clients. |
 | `version` | `bigint` | Server-incremented optimistic-concurrency version. Starts at 1. |
 | `deleted_at` | `timestamptz` | Tombstone. Null for live rows. |
 | `created_at` | `timestamptz` | Row creation time, `now()` by default. |
@@ -127,8 +125,8 @@ constraint is per organisation.
 
 `config` holds public provider settings and operational metadata. Secrets
 live in the separate server-only `encrypted_data` JSONB column, keyed by
-secret field name. Splitting the columns lets Electric sync `config` while
-excluding `encrypted_data` with a `columns` projection. The Zod schemas
+secret field name. Splitting the columns lets PowerSync sync `config` while
+excluding `encrypted_data` from the stream projection. The Zod schemas
 validate `config` per provider type.
 
 **Device filesystem (`opfs` / `app_fs`)**
@@ -149,7 +147,7 @@ validate `config` per provider type.
   optional. They exist to label the device and diagnose capture problems.
 - An `opfs` or `app_fs` provider has no secrets; `encrypted_data` stays `{}`.
 - These values are personal data and are visible to the other devices in the
-  organisation through the `storage_providers` shape.
+  organisation through the `storage_providers` sync stream.
 
 **S3**
 
@@ -238,8 +236,8 @@ prefix without changing the column type.
 
 The encryption helpers live in `packages/db/crypto.ts`:
 `encryptCredential` and `decryptCredential`. Secrets are decrypted only inside
-the API and background jobs. They are never logged, never included in an
-Electric shape and never returned by a client-facing endpoint.
+the API and background jobs. They are never logged, never included in a
+PowerSync stream and never returned by a client-facing endpoint.
 
 **Public config**
 
@@ -248,8 +246,8 @@ Non-secret fields (`platform`, `endpoint`, `rootFolder`, `expiresAt`, `scope`,
 `tokenType`, …) remain visible. Server-only code uses
 `storageProviderServerSchema` when it needs the secret fields. API handlers
 that list providers must use the public schema, and the `storage_providers`
-Electric shape must keep `encrypted_data` out of its `columns` projection
-(see [ElectricSQL](#electricsql)).
+PowerSync stream must keep `encrypted_data` out of its column list
+(see [PowerSync](#powersync)).
 
 There is no "masked token" field: clients learn whether a provider is
 connected from its tombstone state and OAuth status, not from encrypted
@@ -294,9 +292,8 @@ the region's bucket and endpoint.
 | Column | Type | Notes |
 | --- | --- | --- |
 | `id` | `uuid` | UUIDv7, primary key. |
-| `organization_id` | `text` | Foreign key to `auth.organization(id)`, `ON DELETE CASCADE`. Not null. |
-| `photo_id` | `uuid` | Part of the composite foreign key `(photo_id, organization_id)` to `photos(id, organization_id)`, `ON DELETE CASCADE`. Not null. |
-| `storage_provider_id` | `uuid` | Part of the composite foreign key `(storage_provider_id, organization_id)` to `storage_providers(id, organization_id)`, `ON DELETE CASCADE`. Not null. |
+| `photo_id` | `uuid` | Foreign key to `photos(id)`, `ON DELETE CASCADE`. Not null; tenancy follows the photo's album. |
+| `storage_provider_id` | `uuid` | Foreign key to `storage_providers(id)`, `ON DELETE CASCADE`. Not null. |
 | `object_key` | `text` | Not null. Provider-native path/key of the bytes. |
 | `version` | `bigint` | Server-incremented optimistic-concurrency version. Starts at 1. |
 | `deleted_at` | `timestamptz` | Tombstone. Null for live rows. |
@@ -313,7 +310,7 @@ holds. A location is only written after those bytes were verified.
   copy per photo per provider. Re-uploading after a tombstone creates a new
   row.
 - `CHECK (length(btrim(object_key)) > 0)`.
-- Indexes on `storage_provider_id`, `photo_id` and `organization_id`.
+- Indexes on `storage_provider_id` and `photo_id`.
 
 A photo can therefore have several live locations at once: its device-local copy, the
 S3 copy and any number of cloud-drive copies.
@@ -361,7 +358,7 @@ On first run for an organisation, the mobile app:
 2. mints a provider row id (UUIDv7);
 3. inserts the `opfs` or `app_fs` `storage_providers` row with `label` and `config`;
 4. inserts its local locations as photos are captured;
-5. syncs the rows through the SQLite outbox when connectivity returns.
+5. syncs the rows through PowerSync's upload queue when connectivity returns.
 
 The provider is created offline; no API call is required. If app storage is
 cleared, a new device UUID and provider are created. The old provider remains
@@ -378,9 +375,9 @@ separate provider row in that organisation.
 3. It writes the bytes to the documents directory at `photos/{photoId}.jpg`.
 4. It verifies the stored bytes (read back and hash, or hash while writing).
 5. It inserts the `photos` row and the local device (`opfs`/`app_fs`) `photo_locations` row into local
-   SQLite, then enqueues the metadata sync.
-6. The outbox posts the photo, provider and location rows to
-   `POST /api/sync/mutations`; metadata sync remains queued while offline.
+   SQLite; TanStack DB/PowerSync queue the metadata upload.
+6. PowerSync posts the photo, provider and location rows to
+   `POST /api/sync/upload`; metadata sync remains queued while offline.
 
 A photo without `image_checksum` cannot have a location row; hashing is part of
 the write.
@@ -484,38 +481,33 @@ locations by design.
 
 The cleanup job is implemented in a later task.
 
-## ElectricSQL
+## PowerSync
 
-Shapes are served by `GET`/`POST /api/sync/shapes/:table`. The API
-authenticates the session, resolves the active organisation and injects the
-`where organization_id = $1`, `columns` projection and Electric secret.
-The shape definitions are in `api/src/sync-shapes.ts`:
+Sync Streams are defined in `powersync/sync-config.yaml` and served at
+`https://<region>.lofipix.app/powersync/`. `POST /api/sync/token` mints a JWT
+whose `organization_id` claim scopes every stream.
 
-- `albums`, `photos` and `photo_locations` sync all public columns, including
-  `organization_id`, `version` and `deleted_at`;
-- `storage_providers` syncs its public columns including `config`, but
-  excludes `encrypted_data`.
+- `albums` and `storage_providers` filter directly on `organization_id`;
+- `photos` and `photo_locations` join through `albums`;
+- `storage_providers` selects its public columns including `config`, but
+  excludes `encrypted_data`;
+- tombstones are synced and the mobile app filters `deleted_at is null`.
 
-Shapes include tombstones; the mobile app filters `deleted_at is null` in
-reads. Every table is organisation-scoped by the proxy, so a client only
-ever receives its own organisation's rows. There is no global multi-tenant
-stream.
-
-`opfs` and `app_fs` providers and locations can be created in the mobile app's local SQLite
-database and sent through the outbox. The API-side mutation validation
-enforces:
+`opfs` and `app_fs` providers and locations can be created in the mobile app's
+local SQLite database and sent through PowerSync's upload queue. The API-side
+upload validation enforces:
 
 - the provider's organisation matches the signed-in user's membership;
 - `opfs`/`app_fs` providers have a UUID `external_id`, a valid `platform` and
   `encrypted_data = {}`;
-- a location's photo and provider belong to the same organisation
-  (composite foreign keys plus explicit checks);
+- a location's photo resolves to the same organisation through its album, and
+  the provider belongs to that organisation;
 - the local device (`opfs`/`app_fs`) `object_key` matches `photos/{photoId}.jpg`;
 - the location is unique among live rows.
 
-S3 locations are written by the API after verification, not by the outbox.
-OneDrive/Google Drive locations are written only by the export worker. The
-outbox payload for a provider may include public `config`; it can never
+S3 locations are written by the API after verification, not by the upload
+queue. OneDrive/Google Drive locations are written only by the export worker.
+The upload payload for a provider may include public `config`; it can never
 include `encrypted_data`.
 
 ## Security
@@ -533,7 +525,7 @@ include `encrypted_data`.
   expected value before any location insert or provider API call. Reject path
   traversal, absolute paths and keys belonging to another photo.
 - **PII**: `opfs`/`app_fs` `config` contains device details and is visible to the other
-  devices in the same organisation through the org-scoped shape. Do not add
+  devices in the same organisation through the org-scoped sync stream. Do not add
   advertising identifiers or precise location.
 - **Provider metadata**: `config.accountEmail` and labels are non-secret but
   visible to other devices in the same organisation.
@@ -563,7 +555,7 @@ All are API-only, authenticated, and scoped to the caller's organisation.
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` | `/storage-providers` | List providers using the public schema (`config` without `encrypted_data`). |
-| `POST` | `/storage-providers` | Create a non-`opfs`/non-`app_fs` provider. `opfs`/`app_fs` providers are created by the mobile app and arrive through the outbox. |
+| `POST` | `/storage-providers` | Create a non-`opfs`/non-`app_fs` provider. `opfs`/`app_fs` providers are created by the mobile app and arrive through the upload queue. |
 | `PATCH` | `/storage-providers/:id` | Update `label` and non-secret `config` fields; preserve and never accept `encrypted_data`. |
 | `DELETE` | `/storage-providers/:id` | Tombstone/disconnect a provider. |
 | `POST` | `/storage-providers/:id/reconnect` | Start the OAuth flow for a tombstoned cloud provider. |
@@ -578,13 +570,13 @@ All are API-only, authenticated, and scoped to the caller's organisation.
 Completed in this task:
 
 - `packages/db/models/storage-provider.ts` — `storage_providers` table, enum, public/server/insert Zod schemas, separate `encrypted_data` column, types.
-- `packages/db/models/photo-location.ts` — `photo_locations` table with `organization_id`, version, composite tenant FKs, Zod schemas, types.
+- `packages/db/models/photo-location.ts` — `photo_locations` table with version and parent FKs, Zod schemas, types.
 - `packages/db/crypto.ts` — per-field AES-256-GCM encryption/decryption.
 - `packages/db/schema.ts` — re-exports both new models.
 - `scripts/reset-database.ts` — verification asserts both tables, composite foreign keys, partial unique indexes and check constraints.
-- `docs/ELECTRICSQL.md` — installing and running ElectricSQL under systemd; `api/src/sync-shapes.ts` defines the provider/location column projections.
-- Mobile SQLite tables and outbox support provider/location rows.
-- `.env.example` — adds `STORAGE_PROVIDER_CREDENTIALS_KEY` and the ElectricSQL variables.
+- `docs/POWERSYNC.md` — installing and running PowerSync under systemd; `powersync/sync-config.yaml` defines the provider/location projections.
+- Mobile PowerSync tables and the upload queue support provider/location rows.
+- `.env.example` — adds `STORAGE_PROVIDER_CREDENTIALS_KEY` and the PowerSync service variables.
 
 Deferred to later tasks:
 

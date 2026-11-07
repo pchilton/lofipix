@@ -6,6 +6,7 @@ import {
   magicLink,
   emailOTP,
   genericOAuth,
+  jwt,
   organization,
 } from 'better-auth/plugins';
 import { PostgresDialect } from 'kysely';
@@ -82,6 +83,19 @@ export const auth = betterAuth({
     }),
     genericOAuth({
       config: [],
+    }),
+    jwt({
+      jwks: {
+        keyPairConfig: { alg: 'EdDSA', crv: 'Ed25519' },
+      },
+      jwt: {
+        issuer: baseURL,
+        audience: 'powersync',
+        expirationTime: '5m',
+        definePayload: ({ session }) => ({
+          organization_id: session.activeOrganizationId ?? null,
+        }),
+      },
     }),
   ],
 });

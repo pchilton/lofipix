@@ -8,8 +8,7 @@ import { SyncChip } from '../components/SyncChip';
 import { Icon } from '../icons/Icon';
 import { touchAlbum, updateAlbumNotes } from '../lib/domain/albums';
 import { deletePhoto } from '../lib/domain/photos';
-import { useAlbum, useAlbumPhotos, usePendingIds } from '../lib/hooks';
-import { deletePhotoBytes } from '../lib/photo-capture';
+import { useAlbum, useAlbumPhotos } from '../lib/hooks';
 import type { RootStackParamList } from '../navigation/types';
 import { colors, radius, spacing } from '../theme/tokens';
 import { AppText, Button, Card, ErrorText, Header, Screen, TextField } from '../ui';
@@ -22,7 +21,6 @@ export function FinishScreen() {
   const { albumId, existing } = route.params;
   const album = useAlbum(albumId);
   const photos = useAlbumPhotos(albumId);
-  const pendingIds = usePendingIds();
   const [notes, setNotes] = useState('');
   const [notesSaved, setNotesSaved] = useState(false);
   const [notesPending, setNotesPending] = useState(false);
@@ -55,10 +53,7 @@ export function FinishScreen() {
         text: 'Delete',
         style: 'destructive',
         onPress: () => {
-          void (async () => {
-            await deletePhoto(photoId);
-            await deletePhotoBytes(photoId);
-          })();
+          void deletePhoto(photoId);
         },
       },
     ]);
@@ -149,7 +144,7 @@ export function FinishScreen() {
               </Pressable>
               <View style={styles.photoFooter}>
                 <AppText variant="small">#{photo.position}</AppText>
-                <SyncChip queued={pendingIds.has(photo.id)} />
+                <SyncChip queued={Boolean(photo.$hasPendingWrites)} />
               </View>
               <Button label="Delete" variant="danger" onPress={() => confirmDelete(photo.id)} />
             </Card>

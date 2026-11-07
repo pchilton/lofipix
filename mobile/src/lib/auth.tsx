@@ -12,14 +12,11 @@ import {
 } from 'react';
 
 import { authClient, getAuthToken, setAuthToken } from './auth-client';
-import { clearLocalDatabase, initLocalDatabase } from './db/client';
-import { startShapes } from './electric-sync';
+import { clearPowerSyncDatabase, powerSync } from './db/client';
+import { LofipixConnector } from './db/connector';
 import { clearPhotoBytes } from './photo-capture';
-import { refreshOutboxStatus, resetOutboxState, startOutbox, stopOutbox } from './outbox';
-import { pendingTotal, outboxStore } from './outbox-store';
-import { resetShapes } from './sync-status';
-import { bumpRevision } from './revision';
 import { clearSessionStale, sessionEvents } from './session-events';
+
 
 const SESSION_CACHE_KEY = 'lofipix.session';
 const SYNC_USER_KEY = 'lofipix.sync-user';
@@ -37,13 +34,12 @@ interface AuthContextValue {
   session: AppSession | null;
   error: string | null;
   signIn: (email: string, password: string) => Promise<void>;
-  signOut: (force?: boolean) => Promise<boolean>;
+  signOut: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 let syncUserId: string | undefined;
-let stopShapes: (() => void) | undefined;
 
 async function storeToken(token: string): Promise<void> {
   setAuthToken(token);
@@ -109,13 +105,8 @@ async function resolveSession(): Promise<AppSession | null> {
 }
 
 async function clearLocalWork(): Promise<void> {
-  stopShapes?.();
-  stopShapes = undefined;
-  stopOutbox();
-  await clearLocalDatabase();
+  await clearPowerSyncDatabase();
   await clearPhotoBytes();
-  resetOutboxState();
-  resetShapes();
   syncUserId = undefined;
 }
 
@@ -131,12 +122,7 @@ async function startSync(session: AppSession): Promise<void> {
 
   await AsyncStorage.setItem(SYNC_USER_KEY, session.userId);
   syncUserId = session.userId;
-
-  await initLocalDatabase();
-  await startOutbox();
-  stopShapes = startShapes();
-  await refreshOutboxStatus();
-  bumpRevision();
+  await powerSync.connect(new LofipixConnector());
 }
 
 function extractToken(result: unknown): string | null {
@@ -222,10 +208,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       clearSessionStale();
-      stopShapes?.();
-      stopShapes = undefined;
-      stopOutbox();
       syncUserId = undefined;
+      void powerSync.disconnect();
       void clearToken().finally(() => {
         setSession(null);
         setStatus('signed-out');
@@ -272,10 +256,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus('signed-in');
   }, []);
 
-  const signOut = useCallback(async (force = false) => {
-    if (!force && pendingTotal(outboxStore.get()) > 0) {
-      return false;
-    }
+  const signOut = useCallback(async () => {
     try {
       await authClient.signOut();
     } finally {

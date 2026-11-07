@@ -12,9 +12,8 @@ API and `scripts/reset-database.ts` so both use the same plugin list.
   the native mobile app.
 - Database: Kysely `PostgresDialect` over `DATABASE_URL`, with
   `schemaName: 'auth'` so every Better Auth table is created in the `auth`
-  schema. Detailed plugin configuration (OAuth providers, JWT options) is
-  deferred to the new-authentication task; this setup only ensures the tables
-  exist.
+  schema. Plugins are configured in the same file (organisation, bearer,
+  magic link, email OTP, generic OAuth and JWT).
 
 ## API mounting and CORS
 
@@ -46,12 +45,13 @@ scheme are trusted.
 | `magicLink` | — (uses `verification`) | Passwordless sign-in via emailed link. |
 | `emailOTP` | — (uses `verification`) | One-time codes for email verification / login. |
 | `genericOAuth` | — (uses `account`) | OAuth2 integrations (e.g. Xero: `offline_access`, token refresh). |
+| `jwt` | `jwks` | Signs short-lived PowerSync tokens (EdDSA/Ed25519) and publishes the JWKS at `/api/auth/jwks`. |
 
 ## Native bearer transport
 
 The mobile app signs in with the normal Better Auth email/password endpoints and
 receives a session token. It stores that token in `react-native-keychain` and
-sends it on every API, shape and mutation request:
+sends it on every API, token and upload request:
 
 ```http
 Authorization: Bearer <token>
@@ -59,9 +59,24 @@ Authorization: Bearer <token>
 
 The `bearer()` plugin converts the header into the same Better Auth session
 that a cookie would produce. `api/src/index.ts` resolves sessions through
-`auth.api.getSession({ headers })`, so `GET/POST /api/sync/shapes/:table` and
-`POST /api/sync/mutations` accept either transport without separate code paths.
-The shape proxy sets `Vary: Cookie, Authorization` and `Cache-Control: no-store`.
+`auth.api.getSession({ headers })`, so `POST /api/sync/token` and
+`POST /api/sync/upload` accept either transport without separate code paths.
+Token and upload responses set `Cache-Control: no-store`.
+
+## PowerSync JWT
+
+The `jwt()` plugin signs EdDSA/Ed25519 tokens with `audience: powersync` and a
+5-minute expiry. `POST /api/sync/token` resolves the session, requires exactly
+one active organisation, and calls `auth.api.signJWT` with:
+
+```json
+{ "sub": "<user id>", "organization_id": "<active organisation id>" }
+```
+
+PowerSync verifies the token against `http://127.0.0.1:5634/api/auth/jwks`
+with audience `powersync`. A user with no active organisation, or with more
+than one, gets `403`; the endpoint never mints an unscoped token. The `jwks`
+table is part of the `auth` schema and is expected by the reset script.
 
 A `401` means the token is missing or invalid; the app marks the session stale
 and prompts for re-login without discarding local work. Signing out revokes the
@@ -81,12 +96,13 @@ session and clears the keychain token.
 REGION=cholet bun scripts/reset-database.ts
 ```
 
-It verifies afterwards: all auth tables present in `auth`, `albums` present
-in `public`, no auth tables in `public`.
+It verifies afterwards: all auth tables present in `auth` (including `jwks`),
+`albums` present in `public`, no auth tables in `public`, and the `powersync`
+bucket-storage schema available without being dropped.
 
 ## Proxies (`packages/db/external/`)
 
-Two kinds of proxies let the app reference auth shapes without owning the
+Two kinds of proxies let the app reference auth structures without owning the
 tables:
 
 1. **Type proxies** (`external/auth.ts`) — type-only re-exports (`User`,

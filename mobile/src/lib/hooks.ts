@@ -1,67 +1,82 @@
-import { useQuery } from '@tanstack/react-query';
+import { eq, isNull, useLiveQuery } from '@tanstack/react-db';
+import { useStatus } from '@powersync/react';
 
-import { listAlbums } from './domain/albums';
-import { listPhotos } from './domain/photos';
-import { useRevision } from './revision';
-import { useOutboxState } from './outbox-store';
-import { allShapesUpToDate, shapeError, useShapeStates } from './sync-status';
+import {
+  albumsCollection,
+  photosCollection,
+  type Album,
+  type Photo,
+} from './db/collections';
+
+export type LiveAlbum = Album & { $hasPendingWrites?: boolean };
+export type LivePhoto = Photo & { $hasPendingWrites?: boolean };
 
 export function useAlbums() {
-  const revision = useRevision();
-  return useQuery({
-    queryKey: ['albums', revision],
-    queryFn: async () => {
-      const rows = await listAlbums();
-      return rows
-        .filter((album) => album.deletedAt == null)
-        .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
-    },
+  const { data, isLoading, isLoadingError, isSyncError } = useLiveQuery({
+    query: (q) =>
+      q
+        .from({ album: albumsCollection })
+        .where(({ album }) => isNull(album.deleted_at))
+        .orderBy(({ album }) => album.updated_at, 'desc'),
   });
+  return {
+    data: data as LiveAlbum[],
+    isLoading,
+    error: isLoadingError || isSyncError ? 'Sync error' : null,
+  };
 }
 
 export function usePhotos() {
-  const revision = useRevision();
-  return useQuery({
-    queryKey: ['photos', revision],
-    queryFn: async () => {
-      const rows = await listPhotos();
-      return rows
-        .filter((photo) => photo.deletedAt == null)
-        .sort((a, b) => a.position - b.position);
-    },
+  const { data, isLoading, isLoadingError, isSyncError } = useLiveQuery({
+    query: (q) =>
+      q
+        .from({ photo: photosCollection })
+        .where(({ photo }) => isNull(photo.deleted_at))
+        .orderBy(({ photo }) => photo.position, 'asc'),
   });
+  return {
+    data: data as LivePhoto[],
+    isLoading,
+    error: isLoadingError || isSyncError ? 'Sync error' : null,
+  };
 }
 
 export function useAlbum(albumId: string) {
-  const albums = useAlbums();
+  const { data, isLoading, isLoadingError, isSyncError } = useLiveQuery({
+    query: (q) =>
+      q
+        .from({ album: albumsCollection })
+        .where(({ album }) => eq(album.id, albumId))
+        .where(({ album }) => isNull(album.deleted_at)),
+  });
   return {
-    ...albums,
-    data: albums.data?.find((album) => album.id === albumId),
+    data: data?.[0] as LiveAlbum | undefined,
+    isLoading,
+    error: isLoadingError || isSyncError ? 'Sync error' : null,
   };
 }
 
 export function useAlbumPhotos(albumId: string) {
-  const photos = usePhotos();
+  const { data, isLoading, isLoadingError, isSyncError } = useLiveQuery({
+    query: (q) =>
+      q
+        .from({ photo: photosCollection })
+        .where(({ photo }) => eq(photo.album_id, albumId))
+        .where(({ photo }) => isNull(photo.deleted_at))
+        .orderBy(({ photo }) => photo.position, 'asc'),
+  });
   return {
-    ...photos,
-    data: photos.data?.filter((photo) => photo.albumId === albumId) ?? [],
+    data: data as LivePhoto[],
+    isLoading,
+    error: isLoadingError || isSyncError ? 'Sync error' : null,
   };
 }
 
-export function usePendingIds(): ReadonlySet<string> {
-  const state = useOutboxState();
-  return state.pendingIds;
-}
-
 export function useSyncLabel(): string {
-  const outbox = useOutboxState();
-  useShapeStates();
-
-  if (!outbox.online) return 'Offline';
-  if (outbox.uploading) return 'Uploading';
-  if (outbox.error) return 'Sync error';
-  if (outbox.pendingCount > 0) return `${outbox.pendingCount} queued`;
-  if (shapeError()) return 'Sync error';
-  if (allShapesUpToDate()) return 'Connected';
-  return 'Syncing';
+  const status = useStatus();
+  if (!status.connected) return 'Offline';
+  if (status.dataFlowStatus?.uploading) return 'Uploading';
+  if (status.uploadError || status.downloadError) return 'Sync error';
+  if (!status.hasSynced || status.dataFlowStatus?.downloading) return 'Syncing';
+  return 'Connected';
 }

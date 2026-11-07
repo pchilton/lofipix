@@ -6,7 +6,6 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { PhotoThumb } from '../components/PhotoThumb';
 import { Icon } from '../icons/Icon';
-import { useAuth } from '../lib/auth';
 import { capturePhoto } from '../lib/domain/photos';
 import { useAlbum, useAlbumPhotos } from '../lib/hooks';
 import type { RootStackParamList } from '../navigation/types';
@@ -19,7 +18,6 @@ export function CaptureScreen() {
   const route = useRoute<CaptureRoute>();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { albumId } = route.params;
-  const { session } = useAuth();
   const album = useAlbum(albumId);
   const photos = useAlbumPhotos(albumId);
   const cameraRef = useRef<CameraApi>(null);
@@ -52,11 +50,6 @@ export function CaptureScreen() {
   }, []);
 
   async function takePhoto() {
-    const organizationId = session?.organizationId;
-    if (!organizationId) {
-      setError('This account has no organisation.');
-      return;
-    }
     setBusy(true);
     setError(null);
     try {
@@ -64,7 +57,7 @@ export function CaptureScreen() {
       if (!capture) {
         throw new Error('The camera is not ready yet.');
       }
-      await capturePhoto(albumId, organizationId, {
+      await capturePhoto(albumId, {
         uri: capture.uri,
         width: capture.width,
         height: capture.height,

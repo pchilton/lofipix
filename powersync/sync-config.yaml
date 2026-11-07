@@ -1,0 +1,47 @@
+# Sync Streams for lofipix. The organisation_id claim is minted by
+# POST /api/sync/token from the user's single active organisation.
+config:
+  edition: 3
+
+streams:
+  albums:
+    auto_subscribe: true
+    query: >
+      SELECT *
+      FROM albums
+      WHERE organization_id = auth.parameter('organization_id')
+
+  photos:
+    auto_subscribe: true
+    query: >
+      SELECT photos.*
+      FROM photos
+      JOIN albums ON albums.id = photos.album_id
+      WHERE albums.organization_id = auth.parameter('organization_id')
+
+  photo_locations:
+    auto_subscribe: true
+    query: >
+      SELECT photo_locations.*
+      FROM photo_locations
+      JOIN photos ON photos.id = photo_locations.photo_id
+      JOIN albums ON albums.id = photos.album_id
+      WHERE albums.organization_id = auth.parameter('organization_id')
+
+  storage_providers:
+    auto_subscribe: true
+    query: >
+      SELECT
+        id,
+        organization_id,
+        provider_type,
+        label,
+        external_id,
+        config,
+        version,
+        originated_at,
+        created_at,
+        updated_at,
+        deleted_at
+      FROM storage_providers
+      WHERE organization_id = auth.parameter('organization_id')

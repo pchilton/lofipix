@@ -1,0 +1,82 @@
+name: Deploy PowerSync
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "powersync/**"
+      - ".github/workflows/deploy-powersync.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-powersync
+  cancel-in-progress: false
+
+env:
+  DEPLOY_HOST: oceania.lofipix.app
+  DEPLOY_USER: ubuntu
+  REMOTE_CONFIG: /etc/lofipix/powersync
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Configure SSH
+        env:
+          DEPLOY_PRIVATE_KEY: ${{ secrets.DEPLOY_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Upload Config
+        run: |
+          set -euo pipefail
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
+            powersync/service.yaml \
+            powersync/sync-config.yaml \
+            powersync/powersync.service \
+            "$DEPLOY_USER@$DEPLOY_HOST:/tmp/lofipix-powersync/"
+
+      - name: Install Config and Restart
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" "REMOTE_CONFIG='$REMOTE_CONFIG' bash -s" <<'REMOTE'
+          set -euo pipefail
+          sudo install -d -m 0750 -o root -g powersync "$REMOTE_CONFIG"
+          sudo install -m 0640 -o root -g powersync /tmp/lofipix-powersync/service.yaml "$REMOTE_CONFIG/service.yaml"
+          sudo install -m 0640 -o root -g powersync /tmp/lofipix-powersync/sync-config.yaml "$REMOTE_CONFIG/sync-config.yaml"
+          sudo install -m 0644 /tmp/lofipix-powersync/powersync.service /etc/systemd/system/powersync.service
+          test -f "$REMOTE_CONFIG/powersync.env"
+          sudo systemctl daemon-reload
+          sudo systemctl restart powersync
+          REMOTE
+
+      - name: Verify Health
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          for _ in $(seq 1 20); do
+            if curl -fsS --max-time 2 http://127.0.0.1:8080/probes/liveness >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "PowerSync health check failed after restart" >&2
+          sudo systemctl status powersync --no-pager >&2 || true
+          sudo journalctl -u powersync -n 50 --no-pager >&2 || true
+          exit 1
+          REMOTE

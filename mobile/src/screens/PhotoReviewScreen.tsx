@@ -7,8 +7,7 @@ import { PhotoThumb } from '../components/PhotoThumb';
 import { SyncChip } from '../components/SyncChip';
 import { Icon } from '../icons/Icon';
 import { deletePhoto } from '../lib/domain/photos';
-import { useAlbumPhotos, usePendingIds } from '../lib/hooks';
-import { deletePhotoBytes } from '../lib/photo-capture';
+import { useAlbumPhotos } from '../lib/hooks';
 import type { RootStackParamList } from '../navigation/types';
 import { colors, spacing } from '../theme/tokens';
 import { AppText, Button, Card, Header, Screen } from '../ui';
@@ -20,7 +19,6 @@ export function PhotoReviewScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { albumId, photoId } = route.params;
   const photos = useAlbumPhotos(albumId);
-  const pendingIds = usePendingIds();
   const [index, setIndex] = useState(0);
 
   const albumPhotos = useMemo(() => photos.data ?? [], [photos.data]);
@@ -49,7 +47,6 @@ export function PhotoReviewScreen() {
         onPress: () => {
           void (async () => {
             await deletePhoto(photo.id);
-            await deletePhotoBytes(photo.id);
             navigation.navigate('Finish', { albumId });
           })();
         },
@@ -62,7 +59,7 @@ export function PhotoReviewScreen() {
       <Header
         title={`Photo #${photo.position}`}
         subtitle={`${index + 1} of ${albumPhotos.length}`}
-        right={<SyncChip queued={pendingIds.has(photo.id)} />}
+        right={<SyncChip queued={Boolean(photo.$hasPendingWrites)} />}
       />
 
       <PhotoThumb photoId={photo.id} label={`Photo ${photo.position}`} style={styles.image} imageStyle={styles.imageInner} />
@@ -71,20 +68,20 @@ export function PhotoReviewScreen() {
         <View style={styles.detailRow}>
           <AppText variant="muted">Dimensions</AppText>
           <AppText variant="body">
-            {photo.imageWidth} × {photo.imageHeight}
+            {photo.image_width} × {photo.image_height}
           </AppText>
         </View>
         <View style={styles.detailRow}>
           <AppText variant="muted">Size</AppText>
-          <AppText variant="body">{Math.round(photo.imageSize / 1024)} KB</AppText>
+          <AppText variant="body">{Math.round(photo.image_size / 1024)} KB</AppText>
         </View>
         <View style={styles.detailRow}>
           <AppText variant="muted">Captured</AppText>
-          <AppText variant="body">{photo.originatedAt.toLocaleString()}</AppText>
+          <AppText variant="body">{new Date(photo.originated_at ?? '').toLocaleString()}</AppText>
         </View>
         <View style={styles.detailRow}>
           <AppText variant="muted">Checksum</AppText>
-          <AppText variant="small">{photo.imageChecksum?.slice(0, 16) ?? '—'}…</AppText>
+          <AppText variant="small">{photo.image_checksum?.slice(0, 16) ?? '—'}…</AppText>
         </View>
       </Card>
 

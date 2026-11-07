@@ -3,9 +3,9 @@ import { cors } from "hono/cors";
 import { sql } from "drizzle-orm";
 import { db as baseDb } from "@lofipix/db";
 import { auth } from "@lofipix/db/auth";
-import { syncMutationsRequestSchema } from "@lofipix/db/schema";
-import { applySyncMutations } from "./sync-mutations";
-import { proxyShape } from "./sync-shapes";
+import { syncUploadRequestSchema } from "@lofipix/db/schema";
+import { applySyncUploads } from "./sync-upload";
+import { issueSyncToken } from "./sync-token";
 import { proxyOtlp } from "./otlp-proxy";
 
 const app = new Hono();
@@ -67,32 +67,40 @@ async function requireSyncContext(c: Context) {
   return { session, organizationId } as const;
 }
 
-app.on(["GET", "POST"], "/api/sync/shapes/:table", async (c) => {
+app.post("/api/sync/token", async (c) => {
   const context = await requireSyncContext(c);
   if ("error" in context) {
     return context.error;
   }
-  return proxyShape(c, context.organizationId);
+
+  const token = await issueSyncToken(
+    context.session.user.id,
+    context.organizationId,
+  );
+  c.header("cache-control", "no-store");
+  return c.json({ token });
 });
 
-app.post("/api/sync/mutations", async (c) => {
+app.post("/api/sync/upload", async (c) => {
   const context = await requireSyncContext(c);
   if ("error" in context) {
     return context.error;
   }
 
-  const parsed = syncMutationsRequestSchema.safeParse(
+  const parsed = syncUploadRequestSchema.safeParse(
     await c.req.json().catch(() => null),
   );
   if (!parsed.success) {
-    return c.json({ error: "Invalid mutations.", issues: parsed.error.issues }, 400);
+    return c.json({ error: "Invalid upload.", issues: parsed.error.issues }, 400);
   }
 
-  const results = await applySyncMutations(
+  const results = await applySyncUploads(
     context.organizationId,
-    parsed.data.mutations,
+    parsed.data.uploads,
   );
-  return c.json({ results });
+  const hasConflict = results.some((result) => result.status === 'conflict');
+  c.header("cache-control", "no-store");
+  return c.json({ results }, hasConflict ? 409 : 200);
 });
 
 app.on(["POST", "PUT"], "/api/telemetry/*", async (c) => {

@@ -11,8 +11,8 @@ is the single source of truth for domain context (about, mobile app behaviour, p
 compression), architecture diagram, directory table, and stack — read it first,
 consult it during tasks, do not duplicate it in prompts.
 
-- **Web app** — React + TanStack Router (React), static export, no ElectricSQL, ShadCN + Tailwind, Bun (`www/`)
-- **Mobile** — bare React Native + React Navigation, offline-first via embedded SQLite (`@op-engineering/op-sqlite`) + ElectricSQL shapes + an outbox, and the app documents directory for photo bytes, Bun (`mobile/`)
+- **Web app** — React + TanStack Router (React), static export, no sync engine, ShadCN + Tailwind, Bun (`www/`)
+- **Mobile** — bare React Native + React Navigation, offline-first via embedded SQLite (`@op-engineering/op-sqlite`) managed by PowerSync + TanStack DB collections, and the app documents directory for photo bytes, Bun (`mobile/`)
 - **Central API** — Hono + Bun + Drizzle ORM, source of truth (`api/`)
 - **Database** — PostgreSQL: Better Auth tables in the `auth` schema (synced by Better Auth, see `docs/AUTHENTICATION.md`); application tables in `public` (Drizzle schema + `drizzle-kit push`, `packages/db`)
 - **Storage** — SeaweedFS (S3-compatible)
@@ -29,7 +29,7 @@ Read the relevant file when a task touches its area:
 - `docs/ARCHITECTURE.md` — target technology stacks for `www/`, `mobile/`, `api/`, shared models, frontend conventions, communication channels.
 - `docs/WEBSITE.md` — website storyboard: pages, contents, user journey (marketing → dashboard → account/billing).
 - `docs/MOBILE.md` — mobile storyboard: offline capture loop (dashboard → create → capture → finish → submit), SQLite cache and native modules.
-- `docs/ELECTRICSQL.md` — ElectricSQL + SQLite sync: shape proxy, outbox/version contract, cache rebuild and updates.
+- `docs/POWERSYNC.md` — self-hosted PowerSync: service install, Sync Streams, JWT auth, upload/rebase contract and operations.
 - `docs/AUTHENTICATION.md` — Better Auth setup: config (`packages/db/auth.ts`), `auth`-schema tables per plugin, the two-step sync process, and `packages/db/external` proxies (types + foreign-key targets).
 - `docs/STORAGE.md` — SeaweedFS setup, buckets, auth, systemd service.
 - `docs/DEPLOYMENT.md` — deployment targets, domains, auth cookies.
@@ -55,15 +55,15 @@ Read the relevant file when a task touches its area:
 - Database sync is two-step: Better Auth tables sync into the `auth` schema via `REGION=cholet bun scripts/reset-database.ts` (driven by `packages/db/auth.ts`); application tables sync into `public` via `db:push` from `packages/db`. Custom SQL (extensions, functions, views) is applied manually or in a later task — no SQL migration files in the repo.
 - Each app folder (`api/`, `www/`, `mobile/`) uses Bun for scripts and package management; `www/` and `api/` use HMR. API database access uses Drizzle with `DATABASE_URL`.
 - Shared types and Zod schemas go in `models/` and are imported by API and clients — do not re-define them locally. Database models (Drizzle tables + their Zod schemas) live in `packages/db/models/`.
-- Website code is React + TanStack Router/Query/Form with ShadCN; mobile code is React Native + React Navigation with SQLite/Drizzle. Do not introduce SolidJS, TarkUI, PGlite, VitePWA or TanStack DB.
+- Website code is React + TanStack Router/Query/Form with ShadCN; mobile code is React Native + React Navigation with PowerSync-managed SQLite + TanStack DB. Do not introduce SolidJS, TarkUI, PGlite or VitePWA.
 - Record ids are UUIDv7 generated with `uuidv7()` from the `uuid` package, not `Bun.randomUUIDv7()`: the mobile app is native and must mint ids offline.
 - API endpoints validate input with Zod schemas from `models/`.
 - Shared web UI components (ShadCN: Radix + Tailwind) live in `packages/ui` (`@lofipix/ui`) as copied-in source, each with a colocated `*.stories.tsx`. Follow `docs/SHADCN.md`. Never run the ShadCN CLI or `solidcn` inside a workspace package directory: it can write an `npm` lockfile there. Generate outside the workspace and copy source in. Storybook and component tests run from `packages/ui` (`bun run storybook`, `bun run test`).
-- The mobile local schema lives in `mobile/src/lib/db/schema.ts` and uses a versioned cache rebuild, not incremental migrations; the DDL is generated with `cd mobile && bun run schema:generate` into `mobile/src/lib/db/ddl.ts`. Syncable local tables carry a client-only `outbox_needed` flag and an outbox; local writes go through the outbox, not directly to the API.
+- The mobile local schema lives in `mobile/src/lib/db/schema.ts` as a PowerSync `Schema`; PowerSync owns SQLite creation, versioning and cache reset. TanStack DB collections in `mobile/src/lib/db/collections.ts` are the read/write layer, and writes flow through PowerSync's upload queue to `POST /api/sync/upload`; PowerSync's queue is the only pending-write store.
 - Icons come from Iconify collections. Web apps compile them with unplugin-icons (`~icons/<prefix>/<name>`, static names); the mobile app bundles them for react-native-svg. Never fetch icons from the Iconify API at runtime. Follow `docs/ICONS.md`.
 - Object storage access goes through pre-signed URLs generated by the API — clients never hold S3 credentials.
-- Photo bytes are located through `storage_providers` and `photo_locations` (see `docs/PHOTO_LOCATIONS.md`). `storage_providers.encrypted_data` is a separate server-only object of individually encrypted secret fields: never include it in an Electric shape, return it from a client-facing endpoint, or log it.
-- Authorization is enforced via the Better Auth organisation plugin (organisation / member tables in the `auth` schema). See `docs/AUTHENTICATION.md`.
+- Photo bytes are located through `storage_providers` and `photo_locations` (see `docs/PHOTO_LOCATIONS.md`). `storage_providers.encrypted_data` is a separate server-only object of individually encrypted secret fields: never include it in a sync stream, return it from a client-facing endpoint, or log it.
+- Authorization is enforced via the Better Auth organisation plugin (organisation / member tables in the `auth` schema). Mobile sync scopes rows with a short-lived JWT whose `organization_id` claim comes from the user's single active organisation. See `docs/AUTHENTICATION.md` and `docs/POWERSYNC.md`.
 - Config comes from `.env.<REGION>` environment variables; no secrets committed to the repo.
 - New top-level directories should be reflected in the README's directory table in the same change.
 

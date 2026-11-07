@@ -14,6 +14,7 @@ const EXPECTED_AUTH_TABLES = [
   'organization',
   'member',
   'invitation',
+  'jwks',
 ];
 
 const EXPECTED_PUBLIC_TABLES = [
@@ -30,6 +31,17 @@ async function resetSchemas(client: postgres.Sql): Promise<void> {
   await client.unsafe('CREATE SCHEMA public');
   await client.unsafe('CREATE SCHEMA auth');
   await client.unsafe('CREATE SCHEMA drizzle');
+}
+
+async function ensurePowersyncSchema(client: postgres.Sql): Promise<void> {
+  await client.unsafe(`
+    CREATE SCHEMA IF NOT EXISTS powersync;
+    GRANT USAGE, CREATE ON SCHEMA powersync TO current_user;
+    DO $$
+    BEGIN
+      EXECUTE format('GRANT CONNECT, CREATE ON DATABASE %I TO current_user', current_database());
+    END $$;
+  `);
 }
 
 async function syncAuthSchema(): Promise<void> {
@@ -84,6 +96,8 @@ const client = postgres(databaseUrl, { max: 1 });
 try {
   await resetSchemas(client);
   console.log('schemas recreated (auth, public).');
+  await ensurePowersyncSchema(client);
+  console.log('powersync schema ready.');
   await syncAuthSchema();
   await pushPublicSchema();
   await verify(client);

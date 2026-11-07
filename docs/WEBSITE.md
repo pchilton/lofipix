@@ -2,7 +2,7 @@
 
 Marketing + management surface. Desktop-first, always-online, thin client over
 the central Hono API. React + TanStack Router (static export), ShadCN + Tailwind
-(`packages/ui`), TanStack Query, Better Auth React client. No ElectricSQL sync and
+(`packages/ui`), TanStack Query, Better Auth React client. No sync engine and
 no local persistence.
 
 ## User journey
@@ -17,7 +17,7 @@ happens in the native mobile app; the website is for review and administration.
 
 The website treats the central API as the source of truth. It holds no local
 queue and no optimistic offline state: every view reflects what the API returns
-via TanStack Query. The mobile app behaves differently (ElectricSQL + SQLite,
+via TanStack Query. The mobile app behaves differently (PowerSync + SQLite,
 device-first, optimistic updates) — see `docs/MOBILE.md`; do not carry mobile
 semantics into the website.
 

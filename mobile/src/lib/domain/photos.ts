@@ -1,11 +1,14 @@
-import { eq } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 
-import { getDb } from '../db/client';
-import { photos } from '../db/schema';
-import { queueInsert, queueUpdate } from '../outbox';
-import { bumpRevision } from '../revision';
-import { compressAndStorePhoto, deletePhotoBytes, PHOTO_IMAGE_QUALITY, type CameraCapture, type StoredPhoto } from '../photo-capture';
+import { photosCollection } from '../db/collections';
+import { powerSync } from '../db/client';
+import {
+  compressAndStorePhoto,
+  deletePhotoBytes,
+  PHOTO_IMAGE_QUALITY,
+  type CameraCapture,
+  type StoredPhoto,
+} from '../photo-capture';
 
 export interface CapturedPhoto {
   width: number;
@@ -15,76 +18,56 @@ export interface CapturedPhoto {
   checksum: string;
 }
 
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
 export async function nextPosition(albumId: string): Promise<number> {
-  const rows = await getDb().select({ position: photos.position }).from(photos).where(eq(photos.albumId, albumId));
-  let max = 0;
-  for (const row of rows) {
-    max = Math.max(max, row.position);
-  }
-  return max + 1;
+  const row = await powerSync.getOptional<{ max: number | null }>(
+    'select max(position) as max from photos where album_id = ? and deleted_at is null',
+    [albumId],
+  );
+  return (row?.max ?? 0) + 1;
 }
 
 export async function insertPhoto(
   albumId: string,
-  organizationId: string,
   captured: CapturedPhoto,
   id: string = uuidv7(),
 ): Promise<string> {
-  const now = new Date();
-  const row = {
+  const now = nowIso();
+  photosCollection.insert({
     id,
-    organizationId,
-    albumId,
+    album_id: albumId,
     position: await nextPosition(albumId),
-    imageWidth: captured.width,
-    imageHeight: captured.height,
-    imageQuality: captured.quality || PHOTO_IMAGE_QUALITY,
-    imageSize: captured.size,
-    imageChecksum: captured.checksum,
+    image_width: captured.width,
+    image_height: captured.height,
+    image_quality: captured.quality || PHOTO_IMAGE_QUALITY,
+    image_size: captured.size,
+    image_checksum: captured.checksum,
     version: 0,
-    outboxNeeded: true,
-    originatedAt: now,
-    deletedAt: null,
-    createdAt: now,
-    updatedAt: now,
-  };
-  await getDb().insert(photos).values(row);
-  queueInsert('photos', row);
-  bumpRevision();
+    originated_at: now,
+    created_at: now,
+    updated_at: now,
+    deleted_at: null,
+  });
   return id;
 }
 
 export async function deletePhoto(photoId: string): Promise<void> {
-  const [original] = await getDb().select().from(photos).where(eq(photos.id, photoId)).limit(1);
-  if (!original) {
+  if (!photosCollection.get(photoId)) {
     return;
   }
-  const changes = {
-    deletedAt: new Date(),
-    outboxNeeded: true,
-    updatedAt: new Date(),
-  };
-  if (original.version === 0) {
-    await getDb().delete(photos).where(eq(photos.id, photoId));
-  } else {
-    await getDb().update(photos).set(changes).where(eq(photos.id, photoId));
-  }
-  queueUpdate('photos', original, changes);
+  photosCollection.delete(photoId);
   await deletePhotoBytes(photoId);
-  bumpRevision();
-}
-
-export async function listPhotos() {
-  return getDb().select().from(photos);
 }
 
 export async function capturePhoto(
   albumId: string,
-  organizationId: string,
   capture: CameraCapture,
 ): Promise<string> {
   const id = uuidv7();
   const stored: StoredPhoto = await compressAndStorePhoto(id, capture);
-  await insertPhoto(albumId, organizationId, stored, id);
+  await insertPhoto(albumId, stored, id);
   return id;
 }

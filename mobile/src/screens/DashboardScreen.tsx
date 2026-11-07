@@ -2,7 +2,7 @@ import { useForm, useStore } from '@tanstack/react-form';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
 import { PhotoThumb } from '../components/PhotoThumb';
@@ -11,9 +11,7 @@ import { Icon } from '../icons/Icon';
 import { useAuth } from '../lib/auth';
 import { createAlbum } from '../lib/domain/albums';
 import { errorText } from '../lib/form';
-import { useAlbums, usePendingIds, usePhotos, useSyncLabel } from '../lib/hooks';
-import { pendingTotal } from '../lib/outbox-store';
-import { useOutboxState } from '../lib/outbox-store';
+import { useAlbums, usePhotos, useSyncLabel } from '../lib/hooks';
 import { colors, radius, spacing } from '../theme/tokens';
 import type { RootStackParamList } from '../navigation/types';
 import { AppText, Button, Card, ErrorText, Header, Screen, TextField } from '../ui';
@@ -34,9 +32,7 @@ export function DashboardScreen() {
   const { session, signOut } = useAuth();
   const albumsQuery = useAlbums();
   const photosQuery = usePhotos();
-  const pendingIds = usePendingIds();
   const syncLabel = useSyncLabel();
-  const outbox = useOutboxState();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -46,9 +42,9 @@ export function DashboardScreen() {
   const photosByAlbum = useMemo(() => {
     const grouped = new Map<string, typeof photos>();
     for (const photo of photos) {
-      const list = grouped.get(photo.albumId) ?? [];
+      const list = grouped.get(photo.album_id) ?? [];
       list.push(photo);
-      grouped.set(photo.albumId, list);
+      grouped.set(photo.album_id, list);
     }
     return grouped;
   }, [photos]);
@@ -89,17 +85,6 @@ export function DashboardScreen() {
   }, [albums, name]);
 
   function handleSignOut() {
-    if (pendingTotal(outbox) > 0) {
-      Alert.alert(
-        'Unsynced changes',
-        'This device has changes that have not synced yet. Signing out will discard them.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Sign out', style: 'destructive', onPress: () => void signOut(true) },
-        ],
-      );
-      return;
-    }
     void signOut();
   }
 
@@ -119,7 +104,9 @@ export function DashboardScreen() {
         }
       />
 
-      {outbox.error ? <ErrorText>Sync error: {outbox.error}</ErrorText> : null}
+      {albumsQuery.error || photosQuery.error ? (
+        <ErrorText>Sync error: {albumsQuery.error ?? photosQuery.error}</ErrorText>
+      ) : null}
 
       <Card>
         <AppText variant="heading">New album</AppText>
@@ -196,7 +183,7 @@ export function DashboardScreen() {
                     {albumPhotos.length} photo{albumPhotos.length === 1 ? '' : 's'}
                   </AppText>
                 </View>
-                <SyncChip queued={pendingIds.has(album.id)} />
+                <SyncChip queued={Boolean(album.$hasPendingWrites)} />
               </Pressable>
               <View style={styles.thumbs}>
                 {albumPhotos.slice(0, 4).map((photo) => (

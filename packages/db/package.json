@@ -8,7 +8,8 @@
     ".": "./index.ts",
     "./schema": "./schema.ts",
     "./auth": "./auth.ts",
-    "./connection": "./connection.ts"
+    "./connection": "./connection.ts",
+    "./models/sync-upload": "./models/sync-upload.ts"
   },
   "scripts": {
     "db:push": "bunx drizzle-kit push",

@@ -1,127 +1,92 @@
-import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { Schema, Table, column } from '@powersync/react-native';
 
-export const LOCAL_SCHEMA_VERSION = 1;
-
-const timestamps = {
-  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
-};
-
-export const albums = sqliteTable(
-  'albums',
+const albums = new Table(
   {
-    id: text('id').primaryKey(),
-    organizationId: text('organization_id').notNull(),
-    name: text('name').notNull(),
-    notes: text('notes'),
-    version: integer('version').notNull().default(1),
-    outboxNeeded: integer('outbox_needed', { mode: 'boolean' }).notNull().default(false),
-    originatedAt: integer('originated_at', { mode: 'timestamp_ms' }).notNull(),
-    deletedAt: integer('deleted_at', { mode: 'timestamp_ms' }),
-    ...timestamps,
+    organization_id: column.text,
+    name: column.text,
+    notes: column.text,
+    version: column.integer,
+    originated_at: column.text,
+    created_at: column.text,
+    updated_at: column.text,
+    deleted_at: column.text,
   },
-  (table) => [index('albums_organization_id_idx').on(table.organizationId)],
+  {
+    indexes: {
+      albums_organization_id: ['organization_id'],
+    },
+  },
 );
 
-export const photos = sqliteTable(
-  'photos',
+const photos = new Table(
   {
-    id: text('id').primaryKey(),
-    organizationId: text('organization_id').notNull(),
-    albumId: text('album_id').notNull(),
-    position: integer('position').notNull(),
-    imageWidth: integer('image_width').notNull(),
-    imageHeight: integer('image_height').notNull(),
-    imageQuality: integer('image_quality').notNull(),
-    imageSize: integer('image_size').notNull(),
-    imageChecksum: text('image_checksum'),
-    version: integer('version').notNull().default(1),
-    outboxNeeded: integer('outbox_needed', { mode: 'boolean' }).notNull().default(false),
-    originatedAt: integer('originated_at', { mode: 'timestamp_ms' }).notNull(),
-    deletedAt: integer('deleted_at', { mode: 'timestamp_ms' }),
-    ...timestamps,
+    album_id: column.text,
+    position: column.integer,
+    image_width: column.integer,
+    image_height: column.integer,
+    image_quality: column.integer,
+    image_size: column.integer,
+    image_checksum: column.text,
+    version: column.integer,
+    originated_at: column.text,
+    created_at: column.text,
+    updated_at: column.text,
+    deleted_at: column.text,
   },
-  (table) => [
-    index('photos_album_id_idx').on(table.albumId),
-    index('photos_organization_id_idx').on(table.organizationId),
-  ],
+  {
+    indexes: {
+      photos_album_id: ['album_id'],
+    },
+  },
 );
 
-export const photoLocations = sqliteTable(
-  'photo_locations',
+const photoLocations = new Table(
   {
-    id: text('id').primaryKey(),
-    organizationId: text('organization_id').notNull(),
-    photoId: text('photo_id').notNull(),
-    storageProviderId: text('storage_provider_id').notNull(),
-    objectKey: text('object_key').notNull(),
-    version: integer('version').notNull().default(1),
-    outboxNeeded: integer('outbox_needed', { mode: 'boolean' }).notNull().default(false),
-    originatedAt: integer('originated_at', { mode: 'timestamp_ms' }).notNull(),
-    deletedAt: integer('deleted_at', { mode: 'timestamp_ms' }),
-    ...timestamps,
+    photo_id: column.text,
+    storage_provider_id: column.text,
+    object_key: column.text,
+    version: column.integer,
+    originated_at: column.text,
+    created_at: column.text,
+    updated_at: column.text,
+    deleted_at: column.text,
   },
-  (table) => [
-    index('photo_locations_photo_id_idx').on(table.photoId),
-    index('photo_locations_organization_id_idx').on(table.organizationId),
-  ],
+  {
+    indexes: {
+      photo_locations_photo_id: ['photo_id'],
+      photo_locations_storage_provider_id: ['storage_provider_id'],
+    },
+  },
 );
 
-export const storageProviders = sqliteTable(
-  'storage_providers',
+const storageProviders = new Table(
   {
-    id: text('id').primaryKey(),
-    organizationId: text('organization_id').notNull(),
-    providerType: text('provider_type').notNull(),
-    label: text('label').notNull(),
-    externalId: text('external_id').notNull(),
-    config: text('config').notNull().default('{}'),
-    version: integer('version').notNull().default(1),
-    outboxNeeded: integer('outbox_needed', { mode: 'boolean' }).notNull().default(false),
-    originatedAt: integer('originated_at', { mode: 'timestamp_ms' }).notNull(),
-    deletedAt: integer('deleted_at', { mode: 'timestamp_ms' }),
-    ...timestamps,
+    organization_id: column.text,
+    provider_type: column.text,
+    label: column.text,
+    external_id: column.text,
+    config: column.text,
+    version: column.integer,
+    originated_at: column.text,
+    created_at: column.text,
+    updated_at: column.text,
+    deleted_at: column.text,
   },
-  (table) => [index('storage_providers_organization_id_idx').on(table.organizationId)],
+  {
+    indexes: {
+      storage_providers_organization_id: ['organization_id'],
+    },
+  },
 );
 
-export const outbox = sqliteTable(
-  'outbox',
-  {
-    id: text('id').primaryKey(),
-    organizationId: text('organization_id').notNull(),
-    tableName: text('table_name').notNull(),
-    recordId: text('record_id').notNull(),
-    operation: text('operation').notNull(),
-    payload: text('payload').notNull().default('{}'),
-    baseVersion: integer('base_version').notNull().default(0),
-    status: text('status').notNull().default('pending'),
-    attemptCount: integer('attempt_count').notNull().default(0),
-    nextAttemptAt: integer('next_attempt_at', { mode: 'timestamp_ms' }).notNull(),
-    lastError: text('last_error'),
-    ...timestamps,
-  },
-  (table) => [
-    index('outbox_status_next_attempt_idx').on(table.status, table.nextAttemptAt),
-    index('outbox_record_idx').on(table.recordId),
-  ],
-);
-
-export const localMeta = sqliteTable('local_meta', {
-  key: text('key').primaryKey(),
-  value: text('value').notNull(),
-});
-
-export const syncTableObjects = {
+export const AppSchema = new Schema({
   albums,
   photos,
   photo_locations: photoLocations,
   storage_providers: storageProviders,
-} as const;
+});
 
-export type LocalAlbum = typeof albums.$inferSelect;
-export type LocalPhoto = typeof photos.$inferSelect;
-export type LocalPhotoLocation = typeof photoLocations.$inferSelect;
-export type LocalStorageProvider = typeof storageProviders.$inferSelect;
-export type OutboxRow = typeof outbox.$inferSelect;
-export type OutboxStatus = 'pending' | 'inflight' | 'failed' | 'dead';
+export type AlbumRow = (typeof AppSchema)['types']['albums'];
+export type PhotoRow = (typeof AppSchema)['types']['photos'];
+export type PhotoLocationRow = (typeof AppSchema)['types']['photo_locations'];
+export type StorageProviderRow = (typeof AppSchema)['types']['storage_providers'];

@@ -42,21 +42,20 @@ reads. There is no database constraint: the column is free-form text and the
 database neither indexes nor constrains it.
 
 `notes` is written both server-side and offline by the mobile app, so it is part of
-the `albums` Electric shape (see `docs/ELECTRICSQL.md`).
+the `albums` sync stream (see `docs/POWERSYNC.md`).
 
 ## Photos
 
 | Column | Type | Notes |
 | --- | --- | --- |
 | `id` | `uuid` | UUIDv7, primary key. Generated with `uuidv7()` from the `uuid` package so the mobile app can mint ids offline. |
-| `organization_id` | `text` | Foreign key to `auth.organization(id)`, `ON DELETE CASCADE`. Kept on the row so Electric can filter the table by tenant without a join. |
-| `album_id` | `uuid` | Part of the composite foreign key `(album_id, organization_id)` to `albums(id, organization_id)`. Every photo belongs to exactly one album in the same organisation. |
+| `album_id` | `uuid` | Foreign key to `albums(id)`, `ON DELETE CASCADE`. Every photo belongs to exactly one album; the album carries the organisation. |
 | `position` | `integer` | Position of the photo in the album, starting at 1. Required, no default: the value is always explicit. |
 | `image_width` | `integer` | Width in pixels of the stored (rotated and resized) image. |
 | `image_height` | `integer` | Height in pixels of the stored (rotated and resized) image. |
 | `image_quality` | `integer` | JPEG quality used for the stored image, `1..100`. |
 | `image_size` | `integer` | Size in bytes of the stored image. |
-| `captured_at` | `timestamptz` | When the photo was captured on the device. Required, set by the client — never defaulted to `now()` server-side, which would record sync time instead of capture time. |
+| `originated_at` | `timestamptz` | When the photo was captured on the device. Required, set by the client — never defaulted to `now()` server-side, which would record sync time instead of capture time. |
 | `image_checksum` | `text` | Lowercase hex SHA-256 of the stored bytes. Nullable until the image has been processed. De-duplication is decided in application code; the database neither indexes nor constrains uniqueness here. |
 | `version` | `bigint` | Server-incremented optimistic-concurrency version. Starts at 1. |
 | `deleted_at` | `timestamptz` | Tombstone. Null for live rows, set when the photo is deleted. |
@@ -68,7 +67,7 @@ the `albums` Electric shape (see `docs/ELECTRICSQL.md`).
 - `UNIQUE (album_id, position) WHERE deleted_at IS NULL` — position is unique
   among the live photos of an album. The predicate is what makes tombstoning
   work: a deleted photo keeps its row (so the delete propagates through
-  Electric shapes) without permanently burning its position.
+  PowerSync streams) without permanently burning its position.
 - `CHECK (position > 0)`, `CHECK (image_width > 0)`, `CHECK (image_height > 0)`,
   `CHECK (image_quality BETWEEN 1 AND 100)`, `CHECK (image_size >= 0)`.
 - The same ranges are mirrored by Zod refinements on the shared schemas, so
@@ -78,7 +77,7 @@ the `albums` Electric shape (see `docs/ELECTRICSQL.md`).
 
 `photos` is a synced table, so deletes are tombstones rather than row
 removals: the row stays with `deleted_at` set and the deletion propagates to
-other clients through Electric shapes. Queries for an album must filter out
+other clients through PowerSync streams. Queries for an album must filter out
 tombstoned rows.
 
 `albums` uses the same convention (`albums.deleted_at`): tombstoning an album
@@ -87,14 +86,16 @@ every client.
 
 ## Sync
 
-`photos` and `albums` are served as Electric shapes through the API proxy
-(see `docs/ELECTRICSQL.md`). The shapes filter by `organization_id` and
-include tombstones; the mobile app filters `deleted_at is null` in reads.
+`albums` and `photos` are served as PowerSync Sync Streams (see
+`docs/POWERSYNC.md`). `albums` filters directly on `organization_id`; `photos`
+joins to `albums` because the photos table has no organisation column. Both
+streams include tombstones; the mobile app filters `deleted_at is null` in
+reads.
 
 The mobile app creates photo rows offline, which is why the id, `position` and
-`captured_at` are supplied by the client. The SQLite outbox posts them to
-`POST /api/sync/mutations`, which checks `organization_id` and the
-`version`/`base_version` pair.
+`originated_at` are supplied by the client. PowerSync's upload queue posts them
+to `POST /api/sync/upload`, which checks the parent album's organisation and the
+`version`/`baseVersion` pair.
 
 ## Backing stores
 

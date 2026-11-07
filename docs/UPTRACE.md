@@ -5,7 +5,7 @@ metrics, logs). Install Uptrace and ClickHouse on the host and run them under
 systemd (Debian 13 / Ubuntu 24.04, amd64 and arm64). Reuse the existing
 PostgreSQL cluster for Uptrace metadata in a dedicated `uptrace` database.
 Instrument the React website, the React Native mobile app, Hono API, PostgreSQL,
-SeaweedFS, image sync pipeline, and mobile outbox sync writes.
+SeaweedFS, image sync pipeline, and mobile upload sync writes.
 
 ## PostgreSQL (existing cluster)
 
@@ -115,22 +115,22 @@ themselves. Uptrace dashboards and filters can group by these attributes.
 
 | Layer            | Instrumentation                                                        | Result                                                   |
 | ---------------- | ---------------------------------------------------------------------- | -------------------------------------------------------- |
-| Mobile app       | Fetch instrumentation, custom spans | Capture, upload, API request and outbox spans |
+| Mobile app       | Fetch instrumentation, custom spans | Capture, upload, API request and sync upload spans |
 | Website          | Fetch/XHR instrumentation, document-load instrumentation               | Page load, TanStack Query request spans, API request spans |
 | Hono API         | HTTP instrumentation plus custom spans                                 | Incoming request, validation, business logic, response   |
 | PostgreSQL       | Database instrumentation                                               | Query duration, query text, errors                       |
 | SeaweedFS        | HTTP/S3 client instrumentation or custom spans                         | Upload/download duration, object key, byte size          |
 | Image Sync       | Custom span                                                            | Conversion duration, page number, output dimensions      |
-| Outbox sync      | Custom span in the mobile app and API mutation handler                 | Accepted/rejected mutations, conflicts, retries, queue depth |
+| PowerSync upload | Custom span in the mobile connector and API upload handler             | Applied/conflict/rejected uploads, rebases, retries, queue depth |
 
 Notes:
 
 - Mobile spans come from an OpenTelemetry React Native SDK (fetch auto-instrumentation
-  plus manual spans for capture, uploads and outbox mutations).
+  plus manual spans for capture, uploads and PowerSync uploads).
 - Website spans use the same browser SDK (fetch/XHR + document-load) without sync spans.
 - Hono spans wrap each request (route, validation via Zod, handler logic, response
   status) and propagate trace context to pgmq consumers and SeaweedFS calls.
 - PostgreSQL spans record query duration, sanitized query text, and errors.
 - Image Sync spans are emitted by the pgmq consumer doing conversion work.
-- Outbox sync spans track the mutation pipeline: applied/conflict/rejected
-  results, retries, and queue depth.
+- PowerSync upload spans track the upload pipeline: applied/conflict/rejected
+  results, rebases, retries, and queue depth.

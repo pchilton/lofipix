@@ -48,7 +48,20 @@ Locations to service via nginx reverse proxy:
 
 - `/storage-oceania-lofipix/` - SeaweedFS S3 API, using path-based bucket routing
 - `/api/` - Standard API queries via Hono
-- `/api/sync/shapes/` - ElectricSQL shape streams (proxied by the API; Electric itself is loopback-only)
+- `/powersync/` - PowerSync sync streams (WebSocket upgrade; PowerSync itself is loopback-only)
+- `/api/sync/` - JWT issuance and the PowerSync upload endpoint
+
+## PowerSync deployment (oceania)
+
+`powersync/` holds the service config, Sync Streams and systemd unit. The
+service is built once from a pinned `powersync-ja/powersync-service` release and
+installed natively (no Docker); see `powersync/README.md`.
+
+`.github/workflows/deploy-powersync.yml` syncs `powersync/service.yaml`,
+`powersync/sync-config.yaml` and the unit to the VPS, reloads systemd, restarts
+the `powersync` unit and checks `/probes/liveness`. It does not rebuild the
+service. The service reads `PS_*` values from
+`/etc/lofipix/powersync/powersync.env`.
 
 ## API deployment (oceania)
 
@@ -189,7 +202,7 @@ Locations to services by locally running processes, with HMR
 - `192.168.1.15:8333/storage-cholet-lofipix/` - SeaweedFS S3 API, using path-based bucket routing
 - `192.168.1.15:5634/api/` - API queries via Hono and HMR
 - `192.168.1.15:5173/` - WWW on local port and HMR
-- `127.0.0.1:5637/` - ElectricSQL on local port (loopback only)
+- `127.0.0.1:8080/` - PowerSync Service on local port (loopback only)
 - Mobile: native development build connecting to `http://192.168.1.15:5634/` (Android emulators may use `10.0.2.2`)
 
 Development commands (per app, with `REGION=cholet`):

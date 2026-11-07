@@ -50,7 +50,7 @@ graph TD
     %% Client Tier
     subgraph ClientInterfaces [Client Interfaces]
         Web[Website<br>React / Static Export<br>No local storage]
-        Mobile[Mobile App<br>React Native / Offline-first<br>SQLite + ElectricSQL + device files]
+        Mobile[Mobile App<br>React Native / Offline-first<br>SQLite + PowerSync + device files]
     end
 
     %% Network Entry
@@ -63,7 +63,7 @@ graph TD
     subgraph CoreBackend [Core Backend Engine]
         API[Central API Hub<br>Hono / Bun<br>Source of Truth]
         DB[(PostgreSQL Database<br>Drizzle ORM<br>Source of Truth)]
-        Sync[ElectricSQL<br>PostgreSQL shape streams]
+        Sync[PowerSync<br>Postgres logical replication]
         Queue[pgmq Background Jobs<br>Postgres Queue]
     end
 
@@ -103,23 +103,24 @@ graph TD
 
 | Path | Description | Technology |
 | --- | --- | --- |
-| `api/` | Central API, source of truth | Hono + Bun + Drizzle ORM + PostgreSQL + ElectricSQL proxy + pgmq |
+| `api/` | Central API, source of truth | Hono + Bun + Drizzle ORM + PostgreSQL + PowerSync token/upload endpoints + pgmq |
 | `packages/db/` | Database schema (Drizzle `push`), shared Zod models and Better Auth config | TypeScript + Drizzle ORM + PostgreSQL + Better Auth (auth schema, cookie + bearer sessions) |
 | `packages/ui/` | Shared web components (ShadCN on Radix + Tailwind CSS v4), Iconify icons (unplugin-icons), Storybook component isolation, Vitest story tests | React + Radix + Tailwind CSS v4 + unplugin-icons + Storybook + Vitest, Bun |
-| `docs/` | Architecture and operations documentation | Markdown (see `ARCHITECTURE.md`, `AUTHENTICATION.md`, `ELECTRICSQL.md`, `MOBILE.md`, `PHOTOS.md`, `PHOTO_LOCATIONS.md`, `SHADCN.md`, `ICONS.md`, `UPTRACE.md`) |
-| `mobile/` | Native iOS/Android app, offline-first, device-only photo bytes | React Native (bare CLI) + React Navigation + SQLite (op-sqlite) + Drizzle + ElectricSQL + TanStack Query + TanStack Form + Jest + Maestro, Bun |
-| `scripts/` | Operational scripts (incl. database reset, ElectricSQL container start and demo seeding) | TypeScript + Bun (workspace package) |
+| `docs/` | Architecture and operations documentation | Markdown (see `ARCHITECTURE.md`, `AUTHENTICATION.md`, `POWERSYNC.md`, `MOBILE.md`, `PHOTOS.md`, `PHOTO_LOCATIONS.md`, `SHADCN.md`, `ICONS.md`, `UPTRACE.md`) |
+| `mobile/` | Native iOS/Android app, offline-first, device-only photo bytes | React Native (bare CLI) + React Navigation + SQLite (op-sqlite) + PowerSync + TanStack DB + TanStack Form + Jest + Maestro, Bun |
+| `powersync/` | Self-hosted PowerSync service config, sync streams and systemd unit | PowerSync Service (built from source) + PostgreSQL + systemd |
+| `scripts/` | Operational scripts (incl. database reset and demo seeding) | TypeScript + Bun (workspace package) |
 | `workers/` | CloudFlare Workers | JavaScript |
-| `www/` | Website (plain static site, no ElectricSQL sync) | React + TanStack Router (React) + TanStack Query + TanStack Form + ShadCN (`@lofipix/ui`) + Vite, static export, Bun |
+| `www/` | Website (plain static site, no sync) | React + TanStack Router (React) + TanStack Query + TanStack Form + ShadCN (`@lofipix/ui`) + Vite, static export, Bun |
 
 ## General technologies
 
 - **Website**: React + TanStack Router (React) + TanStack Query (data fetching + caching with automatic retry) + TanStack Form + Zod, ShadCN + Tailwind CSS v4 from `@lofipix/ui`, static export
-- **Mobile**: bare React Native + React Navigation native-stack, embedded SQLite (`@op-engineering/op-sqlite`) + Drizzle, ElectricSQL shape streams through the API proxy, SQLite outbox, React state/context + StyleSheet design tokens
+- **Mobile**: bare React Native + React Navigation native-stack, embedded SQLite (`@op-engineering/op-sqlite` via PowerSync), PowerSync sync streams, TanStack DB collections, React state/context + StyleSheet design tokens
 - **Mobile auth**: Better Auth bearer tokens stored in `react-native-keychain`; website keeps Better Auth cookie sessions
 - **Mobile client storage**: SQLite for relational data, app documents directory for photo bytes
-- **Sync**: ElectricSQL shape streams through an authenticated API proxy; SQLite outbox with version checks and idempotent mutations
-- **Backend**: Bun, Hono (central API, source of truth), Drizzle ORM, PostgreSQL (source of truth), ElectricSQL, pgmq for background jobs
+- **Sync**: self-hosted PowerSync with JWT scoping, version-checked uploads and client auto-rebase; PowerSync owns the mobile SQLite cache
+- **Backend**: Bun, Hono (central API, source of truth), Drizzle ORM, PostgreSQL (source of truth), PowerSync, pgmq for background jobs
 - **Authorization**: via the Better Auth organisation plugin (see `docs/AUTHENTICATION.md`)
 - **Package manager**: Bun (`bun install`, `bun.lock`)
 - **Shared**: TypeScript (strict, no `any` in domain models), Zod (every API response and database record has a schema), Shared Models, typed API modules (no direct `fetch()` calls in components)

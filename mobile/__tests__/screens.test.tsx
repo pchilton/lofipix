@@ -17,7 +17,6 @@ jest.mock('../src/lib/hooks', () => ({
   usePhotos: jest.fn(),
   useAlbum: jest.fn(),
   useAlbumPhotos: jest.fn(),
-  usePendingIds: jest.fn(),
   useSyncLabel: jest.fn(),
 }));
 
@@ -48,36 +47,36 @@ import { FinishScreen } from '../src/screens/FinishScreen';
 import { PhotoReviewScreen } from '../src/screens/PhotoReviewScreen';
 import { WelcomeScreen } from '../src/screens/WelcomeScreen';
 
-const now = new Date('2026-01-01T00:00:00Z');
+const now = '2026-01-01T00:00:00.000Z';
 
 const album = {
   id: 'album-1',
-  organizationId: 'org-1',
+  organization_id: 'org-1',
   name: 'AB12 CDE',
   notes: null,
   version: 1,
-  outboxNeeded: false,
-  deletedAt: null,
-  createdAt: now,
-  updatedAt: now,
+  $hasPendingWrites: true,
+  deleted_at: null,
+  originated_at: now,
+  created_at: now,
+  updated_at: now,
 };
 
 const photo = {
   id: 'photo-1',
-  organizationId: 'org-1',
-  albumId: 'album-1',
+  album_id: 'album-1',
   position: 1,
-  imageWidth: 1280,
-  imageHeight: 720,
-  imageQuality: 82,
-  imageSize: 200_000,
-  originatedAt: now,
-  imageChecksum: 'abcdef1234567890',
+  image_width: 1280,
+  image_height: 720,
+  image_quality: 82,
+  image_size: 200_000,
+  originated_at: now,
+  image_checksum: 'abcdef1234567890',
   version: 1,
-  outboxNeeded: false,
-  deletedAt: null,
-  createdAt: now,
-  updatedAt: now,
+  $hasPendingWrites: true,
+  deleted_at: null,
+  created_at: now,
+  updated_at: now,
 };
 
 beforeEach(() => {
@@ -94,7 +93,6 @@ beforeEach(() => {
   jest.mocked(hooks.usePhotos).mockReturnValue({ data: [photo], isLoading: false, error: null } as never);
   jest.mocked(hooks.useAlbum).mockReturnValue({ data: album, isLoading: false, error: null } as never);
   jest.mocked(hooks.useAlbumPhotos).mockReturnValue({ data: [photo], isLoading: false, error: null } as never);
-  jest.mocked(hooks.usePendingIds).mockReturnValue(new Set(['album-1']));
   jest.mocked(hooks.useSyncLabel).mockReturnValue('Connected');
 });
 

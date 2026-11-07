@@ -10,7 +10,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@electric-sql/client": "^1.5.28",
     "@lofipix/db": "workspace:*",
     "@lofipix/env": "workspace:*",
     "better-auth": "1.7.11",

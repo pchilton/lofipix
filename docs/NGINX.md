@@ -6,7 +6,7 @@ nginx provides the reverse proxy for the API server and storage.
 
 - Ensure that the API server is running
 - Ensure that SeaweedFS has been configured
-- Ensure that ElectricSQL is running (loopback only; the API proxies shape requests)
+- Ensure that PowerSync is running (loopback only; nginx exposes `/powersync/`)
 
 ## Configuration
 
@@ -19,12 +19,15 @@ server {
     ssl_certificate /etc/letsencrypt/live/oceania.lofipix.app/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/oceania.lofipix.app/privkey.pem;
 
-    # Electric shape streams. SSE and long-poll responses must not be buffered, or the mobile app never receives live updates.
-    location /api/sync/shapes/ {
-        proxy_pass http://127.0.0.1:5634;
+    # PowerSync sync streams. WebSocket upgrade and unbuffered streaming are required.
+    location /powersync/ {
+        proxy_pass http://127.0.0.1:8080/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
         proxy_buffering off;
         proxy_cache off;
         proxy_read_timeout 3600s;

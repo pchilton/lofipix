@@ -4,8 +4,8 @@ Offline-first capture app for iOS and Android. It talks directly to the API;
 there is no web/PWA build.
 
 Stack: bare React Native CLI (no Expo runtime), React Navigation native-stack,
-embedded SQLite via `@op-engineering/op-sqlite` + Drizzle, ElectricSQL shape
-streams through the API proxy, a SQLite outbox, Better Auth bearer tokens in
+embedded SQLite via `@op-engineering/op-sqlite` managed by PowerSync, TanStack DB
+collections over that database, Better Auth bearer tokens in
 `react-native-keychain`, and photo bytes in the app documents directory.
 `packages/ui` is web-only ShadCN; mobile uses React Native primitives with
 shared StyleSheet tokens.
@@ -26,7 +26,7 @@ Welcome / login
   → Create Album ─┐
   → open existing ┘
   → Take Photos → Finish Album (review / delete)
-  → Submit (enqueue metadata) → Dashboard (album on top, sync progress)
+  → Submit (metadata syncs via PowerSync) → Dashboard (album on top, sync progress)
   → repeat
 ```
 
@@ -93,8 +93,8 @@ Review everything on the device before submitting.
   single blank line; saved with the album row and synced with it.
 - **Add Photos** (emphasised when arriving via "Album already exists") → back
   to Take Photos.
-- **Submit**: enqueues local photo metadata for sync, returns to Dashboard with
-  this album on top.
+- **Submit**: marks the album updated; PowerSync uploads the metadata, then returns
+  to Dashboard with this album on top.
 
 ### Photo review (`/albums/:id/photos/:photoId`)
 
@@ -105,50 +105,45 @@ Full-size local image from the app documents directory.
 
 ## Local database
 
-- SQLite is opened with `@op-engineering/op-sqlite` and accessed through Drizzle.
-- Local tables mirror the public columns of the four synced tables
-  (`albums`, `photos`, `photo_locations`, `storage_providers`) plus a
-  client-only `outbox_needed` flag. They intentionally have no foreign keys so
-  shape delivery order cannot fail a write.
-- `outbox` and `local_meta` are client-only tables.
-- Synced rows are a cache; the outbox is the only durable local work.
-- `bun run schema:generate` (from `mobile/`) produces the bundled DDL from the
-  Drizzle schema. `LOCAL_SCHEMA_VERSION` drives a **cache rebuild**: when the version changes,
-  the app refuses to rebuild while offline or while the outbox has
-  `pending`/`inflight`/`failed` mutations. Once the outbox is drained, the
-  SQLite cache is recreated from bundled DDL and resynced. There are no
-  incremental SQL migration files for the mobile cache.
-- Signing out warns when the outbox has pending work, then clears the database,
-  cached session and local photo bytes.
+- SQLite is opened by `PowerSyncDatabase` from `@powersync/react-native` using
+  the OP-SQLite adapter.
+- The PowerSync `Schema` in `mobile/src/lib/db/schema.ts` defines the four synced
+  tables (`albums`, `photos`, `photo_locations`, `storage_providers`). Rows use
+  snake_case column names; `photos` and `photo_locations` have no
+  `organization_id` (tenancy follows `albums`).
+- PowerSync creates, versions and resets the local schema. There is no custom
+  DDL, `LOCAL_SCHEMA_VERSION` gate or bundled migration file. Upgrading the
+  schema recreates the local cache and resyncs from the server.
+- TanStack DB collections in `mobile/src/lib/db/collections.ts` are the
+  read/write layer; optimistic writes land in SQLite and the PowerSync upload
+  queue.
+- Synced rows are a cache. Pending writes live in PowerSync's durable upload
+  queue.
+- Signing out clears the PowerSync database, cached session and local photo bytes.
 
 ## Sync
 
-Reads: after sign-in the app starts one Electric `ShapeStream` per table at
-`/api/sync/shapes/:table`, sending the bearer token. The API resolves the
-session, injects the `organization_id` filter, column projection and Electric
-secret. A custom writer applies change messages to SQLite; `must-refetch`
-clears non-pending local rows and replays the snapshot. Tombstones are synced
-and reads filter `deletedAt == null`. A change notifier re-queries screens after
-each batch.
+Reads: after sign-in the connector calls `POST /api/sync/token` with the
+Better Auth bearer token. The API requires exactly one active organisation and
+signs a 5-minute JWT with `sub`, `aud: powersync` and `organization_id`.
+PowerSync connects to `https://<region>.lofipix.app/powersync/`; the four
+auto-subscribed Sync Streams filter `albums` and `storage_providers` directly on
+`organization_id`, and `photos`/`photo_locations` join through `albums`.
+Tombstones are synced and reads filter `deletedAt == null`.
 
-Writes: a local write sets `outbox_needed`, then the row or changed columns are
-written to the SQLite `outbox` with a UUIDv7 mutation id and the local `version`
-as `baseVersion`. The sender coalesces pending edits per record and posts one
-mutation per record at a time to `POST /api/sync/mutations` with the bearer
-token.
+Writes: TanStack DB mutations write optimistic rows to PowerSync SQLite. The
+upload queue posts CRUD batches to `POST /api/sync/upload` with the local
+`version` as `baseVersion`; PowerSync owns retry and queueing.
 
-The API applies each mutation in its own transaction with a version check,
-turns deletes into `deleted_at` tombstones, and records the mutation id in
-`sync_mutations` so retries are idempotent. Applied rows/versions are written
-back to SQLite; conflicts replace the local row with the server row and drop
-the pending edit; rejected mutations become `dead`. Retries back off
-exponentially; dead rows are retried once on the next app start.
+The API applies each upload in a transaction with a version check, resolves
+tenancy through the parent album, turns deletes into `deleted_at` tombstones,
+and returns `applied`, `conflict`, `rejected` or `already-applied`. Retries are
+idempotent by natural key; a lost response can at most increment `version`
+again. On `409`, the connector writes the server row locally, re-applies the
+pending changed columns with the new version and lets PowerSync enqueue a fresh
+upload. Rebase is silent; only a failed rebase shows a sync error.
 
-A startup reconciliation pass catches the crash window between a local row
-write and its outbox insert by finding rows with `outbox_needed = true` that
-have no matching outbox entry.
-
-The full outbox/version contract is in `docs/ELECTRICSQL.md`.
+The full JWT/upload/rebase contract is in `docs/POWERSYNC.md`.
 
 ## Photos
 
@@ -157,7 +152,7 @@ The full outbox/version contract is in `docs/ELECTRICSQL.md`.
   quality 0.82, quality floor 0.4).
 - Compute a lowercase hex SHA-256 of the stored bytes.
 - Save under `photos/<photo-id>.jpg` in the app documents directory.
-- Insert only metadata into SQLite and the sync outbox.
+- Insert only metadata into PowerSync SQLite; the upload queue syncs it.
 - Bytes remain device-only; SeaweedFS upload is a later task.
 
 ## Authentication
@@ -166,9 +161,9 @@ The full outbox/version contract is in `docs/ELECTRICSQL.md`.
   `react-native-keychain`.
 - The non-secret session profile (user id, email, name, active organisation) is
   cached in AsyncStorage.
-- API, shape and mutation requests send `Authorization: Bearer`.
-- A `401` marks the session stale and prompts re-login without discarding local
-  work.
+- API token and upload requests send `Authorization: Bearer`.
+- A `401`/`403` marks the session stale and prompts re-login; local cached data is
+  retained until sign-out.
 
 ## Environment configuration
 

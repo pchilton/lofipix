@@ -1,0 +1,38 @@
+# PowerSync service configuration for lofipix.
+# Values are supplied by /etc/lofipix/powersync/powersync.env.
+replication:
+  connections:
+    - type: postgresql
+      uri: !env PS_POSTGRES_URI
+      sslmode: disable
+
+storage:
+  type: postgresql
+  uri: !env PS_STORAGE_URI
+  sslmode: disable
+
+port: !env PS_PORT::number
+
+sync_config:
+  path: sync-config.yaml
+
+client_auth:
+  audience:
+    - powersync
+  jwks:
+    # The API runs on the same host and serves the Better Auth JWKS endpoint.
+    uri: http://127.0.0.1:5634/api/auth/jwks
+
+system:
+  logging:
+    level: !env PS_LOG_LEVEL
+    format: !env PS_LOG_FORMAT
+
+telemetry:
+  # PowerSync's own usage telemetry; application traces stay in Uptrace.
+  disable_telemetry_sharing: false
+
+healthcheck:
+  probes:
+    use_http: true
+    use_filesystem: false

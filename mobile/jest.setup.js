@@ -33,27 +33,6 @@ jest.mock('react-native-screens', () => {
   };
 });
 
-jest.mock('@op-engineering/op-sqlite', () => {
-  const rows = new Map();
-  const db = {
-    execute: jest.fn(async (query, params) => {
-      if (String(query).toLowerCase().includes('select value from local_meta')) {
-        return { rows: rows.has('schema_version') ? [{ value: rows.get('schema_version') }] : [] };
-      }
-      if (String(query).toLowerCase().includes("key = 'schema_version'")) {
-        rows.set('schema_version', params?.[0]);
-      }
-      return { rows: [] };
-    }),
-    executeBatch: jest.fn(async () => ({ rows: [] })),
-    transaction: jest.fn(async (fn) => fn(db)),
-    close: jest.fn(),
-    closeAsync: jest.fn(async () => {}),
-    delete: jest.fn(),
-  };
-  return { open: jest.fn(() => db), openAsync: jest.fn(async () => db) };
-});
-
 jest.mock('react-native-file-access', () => ({
   Dirs: { DocumentDir: '/documents' },
   FileSystem: {
@@ -127,26 +106,4 @@ jest.mock('react-native-svg', () => {
   const { View } = require('react-native');
   const Stub = (props) => React.createElement(View, props);
   return { __esModule: true, default: Stub, Svg: Stub, SvgXml: Stub, Path: Stub, G: Stub, Circle: Stub, Rect: Stub };
-});
-
-jest.mock('@electric-sql/client', () => {
-  const listeners = new Set();
-  return {
-    ShapeStream: jest.fn(() => ({
-      subscribe: jest.fn((onMessages) => {
-        listeners.add(onMessages);
-        return () => listeners.delete(onMessages);
-      }),
-      unsubscribeAll: jest.fn(),
-    })),
-    isChangeMessage: () => false,
-    isControlMessage: () => false,
-    snakeCamelMapper: () => (value) => value,
-    FetchError: class FetchError extends Error {
-      constructor(message, status) {
-        super(message);
-        this.status = status;
-      }
-    },
-  };
 });
