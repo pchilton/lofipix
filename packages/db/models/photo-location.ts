@@ -10,7 +10,6 @@ import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
 import { v7 as uuidv7 } from 'uuid';
 
-import { authOrganization } from '../external/auth-tables';
 import { photos } from './photo';
 import { storageProviders } from './storage-provider';
 
@@ -18,7 +17,6 @@ export const photoLocations = pgTable(
   'photo_locations',
   {
     id: uuid('id').primaryKey().$defaultFn(() => uuidv7()),
-    organizationId: text('organization_id').notNull().references(() => authOrganization.id, { onDelete: 'cascade' }),
     photoId: uuid('photo_id').notNull().references(() => photos.id, { onDelete: 'cascade' }),
     storageProviderId: uuid('storage_provider_id').notNull().references(() => storageProviders.id, { onDelete: 'cascade' }),
     objectKey: text('object_key').notNull(),
