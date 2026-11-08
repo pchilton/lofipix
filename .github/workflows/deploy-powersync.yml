@@ -51,7 +51,7 @@ jobs:
         run: |
           set -euo pipefail
           ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
-            "$DEPLOY_USER@$DEPLOY_HOST" "bash -s" <<'REMOTE'
+            "$DEPLOY_USER@$DEPLOY_HOST" "REMOTE_DIR='$REMOTE_DIR' bash -s" <<'REMOTE'
           set -euo pipefail
           cd "$REMOTE_DIR"
           test -f powersync.env || { echo "powersync.env missing" >&2; exit 1; }
