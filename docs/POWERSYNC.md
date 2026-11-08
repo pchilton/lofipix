@@ -1,8 +1,8 @@
 # PowerSync
 
 PowerSync is the sync engine for the mobile app. PostgreSQL remains the source
-of truth. A self-hosted PowerSync Service, built from source and run under
-systemd, replicates the four application tables to PowerSync SQLite on the
+of truth. A self-hosted PowerSync Service, run from the upstream official Docker
+image, replicates the four application tables to PowerSync SQLite on the
 device. The app reads and writes through TanStack DB collections over that
 database.
 
@@ -112,18 +112,26 @@ The service is configured by `powersync/`:
 - `service.yaml` — source replication, Postgres bucket storage, JWKS auth, port,
   logging and health checks.
 - `sync-config.yaml` — the four Sync Streams.
-- `powersync.service` — systemd unit.
-- `README.md` — source build, install, upgrade, nginx, health and rollback.
+- `docker-compose.yml` — runs the upstream official image with host network,
+  config and env mounted from the repo folder.
+- `powersync.env.example` — template for the env file; `powersync.env` holds
+  real values and is git-ignored.
+- `README.md` — Docker Compose install, start/stop, upgrade, nginx, health and
+  rollback.
 
-PowerSync is built from pinned `powersync-ja/powersync-service` release
-**v1.28.1** and run as the `powersync` user. Upstream only supports Docker, so the source build
-is an explicit, documented deviation. The service listens on
-`127.0.0.1:5677`; nginx exposes `/powersync/` with WebSocket upgrade and no
-buffering.
+PowerSync runs from pinned `powersync-ja/powersync-service` release
+**v1.28.1** (the upstream official image at `ghcr.io/powersync-ja/powersync-service`),
+managed by Docker Compose as user `paul` (rootless Docker). The container uses
+the **host network**, so the service listens on `127.0.0.1:5677` directly and
+reaches the API's JWKS at `127.0.0.1:5634` without a docker network. nginx
+exposes `/powersync/` with WebSocket upgrade and no buffering.
 
 The bucket-storage backend is PostgreSQL on the existing server, in the
 dedicated `powersync` schema, using the `lofipix` user. `reset-database.ts`
 ensures the schema and grants but never drops bucket data.
+
+No MongoDB, Redis or other dependencies are required: bucket storage is
+PostgreSQL, configured via `PS_STORAGE_URI`.
 
 ## Source database
 
@@ -142,19 +150,21 @@ for the exact SQL.
 | `PS_LOG_LEVEL` | no | Service log level. |
 | `PS_LOG_FORMAT` | no | `pretty` or `json`. |
 
-These live in `/etc/powersync/lofipix/powersync.env` on the VPS. They are read by the
-systemd unit, not by the API.
+These live in `powersync/powersync.env` in the repo folder and are read by
+`docker-compose.yml`, not by the API.
 
 ## Operations
 
 - Health: `curl -fsS http://127.0.0.1:5677/probes/liveness` and
   `/probes/readiness`.
-- Logs: `sudo journalctl -u powersync -f`.
-- Config deploy: the `Deploy PowerSync` GitHub Actions workflow syncs
-  `powersync/service.yaml`, `sync-config.yaml` and the unit, reloads systemd,
-  restarts the unit and checks health. It never rebuilds the source.
-- Upgrade: manual pinned-tag rebuild on the VPS; keep the previous checkout for
-  rollback.
+- Logs: `docker compose logs powersync --tail 50`.
+- Start/stop: `docker compose up -d` / `docker compose down`.
+- Config deploy: the `Deploy PowerSync` GitHub Actions workflow syncs the
+  `powersync/` folder to the host, runs `docker compose pull && docker compose
+  up -d` and checks health. It never rebuilds the image.
+- Upgrade: edit the `image:` tag in `docker-compose.yml`, record it in
+  `docs/POWERSYNC.md`, then `docker compose pull && docker compose up -d`.
+  Keep the previous image for rollback.
 
 ## Troubleshooting
 
@@ -162,9 +172,10 @@ systemd unit, not by the API.
   loopback JWKS URL.
 - **No rows for photos/locations**: check the album's organisation and the joins
   in `sync-config.yaml`.
-- **Replication errors**: check `wal_level`, `REPLICATION`, `SELECT` grants and
+- **Replication errors**: check `wal_level`, `REPLICATION` role attribute and
   the publication.
 - **Bucket storage errors**: check `PS_STORAGE_URI` and the `powersync` schema
   grants.
-- **Uploads stuck**: inspect `POST /api/sync/upload` responses and the service
-  logs; `409` responses are auto-rebased by the connector.
+- **Uploads stuck**: inspect `POST /api/sync/upload` responses and
+  `docker compose logs powersync`; `409` responses are auto-rebased by the
+  connector.

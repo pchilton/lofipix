@@ -53,15 +53,15 @@ Locations to service via nginx reverse proxy:
 
 ## PowerSync deployment (oceania)
 
-`powersync/` holds the service config, Sync Streams and systemd unit. The
-service is built once from a pinned `powersync-ja/powersync-service` release and
-installed natively (no Docker); see `powersync/README.md`.
+`powersync/` holds the service config, Sync Streams, `docker-compose.yml` and
+the env template. The service runs from the upstream official Docker image at
+a pinned `powersync-ja/powersync-service` release (v1.28.1) under Docker
+Compose as user `paul` (rootless Docker); see `powersync/README.md`.
 
-`.github/workflows/deploy-powersync.yml` syncs `powersync/service.yaml`,
-`powersync/sync-config.yaml` and the unit to the VPS, reloads systemd, restarts
-the `powersync` unit and checks `/probes/liveness`. It does not rebuild the
-service. The service reads `PS_*` values from
-`/etc/powersync/lofipix/powersync.env`.
+`.github/workflows/deploy-powersync.yml` syncs the `powersync/` folder to the
+host, runs `docker compose pull && docker compose up -d` and checks
+`/probes/liveness`. It never rebuilds the image. The service reads `PS_*`
+values from `powersync/powersync.env` in the repo folder.
 
 ## API deployment (oceania)
 

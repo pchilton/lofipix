@@ -16,7 +16,7 @@ concurrency:
 env:
   DEPLOY_HOST: oceania.lofipix.app
   DEPLOY_USER: ubuntu
-  REMOTE_CONFIG: /etc/powersync/lofipix
+  REMOTE_DIR: /home/ubuntu/powersync
 
 jobs:
   deploy:
@@ -43,32 +43,20 @@ jobs:
           set -euo pipefail
           rsync -az --delete \
             -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
-            powersync/service.yaml \
-            powersync/sync-config.yaml \
-            powersync/powersync.service \
-            "$DEPLOY_USER@$DEPLOY_HOST:/tmp/lofipix-powersync/"
+            powersync/ \
+            --exclude='powersync.env' \
+            "$DEPLOY_USER@$DEPLOY_HOST:$REMOTE_DIR/"
 
-      - name: Install Config and Restart
+      - name: Compose Up and Verify
         run: |
           set -euo pipefail
           ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
-            "$DEPLOY_USER@$DEPLOY_HOST" "REMOTE_CONFIG='$REMOTE_CONFIG' bash -s" <<'REMOTE'
+            "$DEPLOY_USER@$DEPLOY_HOST" "bash -s" <<'REMOTE'
           set -euo pipefail
-          sudo install -d -m 0750 -o root -g powersync "$REMOTE_CONFIG"
-          sudo install -m 0640 -o root -g powersync /tmp/lofipix-powersync/service.yaml "$REMOTE_CONFIG/service.yaml"
-          sudo install -m 0640 -o root -g powersync /tmp/lofipix-powersync/sync-config.yaml "$REMOTE_CONFIG/sync-config.yaml"
-          sudo install -m 0644 /tmp/lofipix-powersync/powersync.service /etc/systemd/system/powersync.service
-          test -f "$REMOTE_CONFIG/powersync.env"
-          sudo systemctl daemon-reload
-          sudo systemctl restart powersync
-          REMOTE
-
-      - name: Verify Health
-        run: |
-          set -euo pipefail
-          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
-            "$DEPLOY_USER@$DEPLOY_HOST" 'bash -s' <<'REMOTE'
-          set -euo pipefail
+          cd "$REMOTE_DIR"
+          test -f powersync.env || { echo "powersync.env missing" >&2; exit 1; }
+          docker compose pull
+          docker compose up -d
           for _ in $(seq 1 20); do
             if curl -fsS --max-time 2 http://127.0.0.1:5677/probes/liveness >/dev/null; then
               exit 0
@@ -76,7 +64,6 @@ jobs:
             sleep 2
           done
           echo "PowerSync health check failed after restart" >&2
-          sudo systemctl status powersync --no-pager >&2 || true
-          sudo journalctl -u powersync -n 50 --no-pager >&2 || true
+          docker compose logs powersync --tail 50 >&2 || true
           exit 1
           REMOTE

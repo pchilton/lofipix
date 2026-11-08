@@ -1,0 +1,20 @@
+services:
+  powersync:
+    image: ghcr.io/powersync-ja/powersync-service:v1.28.1
+    # host network: PowerSync binds 5677 directly, and 127.0.0.1:5634
+    # (the API JWKS) is reachable without a docker network.
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      # Sourced from powersync.env; never commit real values.
+      PS_POSTGRES_URI: ${PS_POSTGRES_URI}
+      PS_STORAGE_URI: ${PS_STORAGE_URI}
+      PS_PORT: ${PS_PORT:-5677}
+      PS_LOG_LEVEL: ${PS_LOG_LEVEL:-info}
+      PS_LOG_FORMAT: ${PS_LOG_FORMAT:-pretty}
+    volumes:
+      # Config is mounted read-only from the repo folder so it can be edited
+      # and redeployed without rebuilding an image.
+      - ./service.yaml:/etc/powersync/service.yaml:ro
+      - ./sync-config.yaml:/etc/powersync/sync-config.yaml:ro
+    working_dir: /etc/powersync

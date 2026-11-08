@@ -108,7 +108,7 @@ graph TD
 | `packages/ui/` | Shared web components (ShadCN on Radix + Tailwind CSS v4), Iconify icons (unplugin-icons), Storybook component isolation, Vitest story tests | React + Radix + Tailwind CSS v4 + unplugin-icons + Storybook + Vitest, Bun |
 | `docs/` | Architecture and operations documentation | Markdown (see `ARCHITECTURE.md`, `AUTHENTICATION.md`, `POWERSYNC.md`, `MOBILE.md`, `PHOTOS.md`, `PHOTO_LOCATIONS.md`, `SHADCN.md`, `ICONS.md`, `UPTRACE.md`) |
 | `mobile/` | Native iOS/Android app, offline-first, device-only photo bytes | React Native (bare CLI) + React Navigation + SQLite (op-sqlite) + PowerSync + TanStack DB + TanStack Form + Jest + Maestro, Bun |
-| `powersync/` | Self-hosted PowerSync service config, sync streams and systemd unit | PowerSync Service (built from source) + PostgreSQL + systemd |
+| `powersync/` | Self-hosted PowerSync service config, sync streams, Dockerfile and systemd unit | PowerSync Service (Docker, host network) + PostgreSQL + systemd |
 | `scripts/` | Operational scripts (incl. database reset and demo seeding) | TypeScript + Bun (workspace package) |
 | `workers/` | CloudFlare Workers | JavaScript |
 | `www/` | Website (plain static site, no sync) | React + TanStack Router (React) + TanStack Query + TanStack Form + ShadCN (`@lofipix/ui`) + Vite, static export, Bun |

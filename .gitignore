@@ -36,6 +36,7 @@ pids/
 .env
 .env.*
 !.env.example
+powersync.env
 
 # Test output
 coverage/

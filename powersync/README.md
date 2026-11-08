@@ -1,7 +1,7 @@
 # PowerSync service
 
-Self-hosted PowerSync for lofipix. The service runs natively under systemd; it
-does not use Docker. Postgres is both the source database and the bucket-storage
+Self-hosted PowerSync for lofipix, run with Docker Compose by user `paul`
+(rootless Docker). Postgres is both the source database and the bucket-storage
 backend (dedicated `powersync` schema).
 
 The API issues short-lived JWTs from `POST /api/sync/token`; the mobile app
@@ -10,7 +10,7 @@ connects to `https://<region>.lofipix.app/powersync/`; uploads go to
 
 ## Prerequisites
 
-- Debian 13 / Ubuntu 24.04, Node.js 22+, pnpm, git.
+- Debian 13 / Ubuntu 24.04, Docker (rootless, user `paul`), git.
 - PostgreSQL 14+ with `wal_level = logical`.
 - The API is running and serving `/api/auth/jwks` on `127.0.0.1:5634`.
 - The `lofipix` database user is the **owner** of the `lofipix` database
@@ -27,41 +27,27 @@ ALTER ROLE lofipix WITH REPLICATION;
 `REGION=cholet bun scripts/reset-database.ts` also ensures the `powersync`
 schema and grants, but intentionally never drops bucket-storage data.
 
-## Install the pinned service
+## Install
 
-Pinned release: **v1.28.1** (v1.28.x line).
+Pinned release: **v1.28.1** (v1.28.x line), from the upstream official image
+`ghcr.io/powersync-ja/powersync-service`. Record the tag in
+`docs/POWERSYNC.md` when bumping.
 
-The upstream project is `powersync-ja/powersync-service`. Upstream publishes a
-Docker image; this deployment builds the same service from source.
-
-```bash
-sudo useradd --system --home /opt/powersync --shell /usr/sbin/nologin powersync
-sudo git clone https://github.com/powersync-ja/powersync-service /opt/powersync
-cd /opt/powersync
-sudo git checkout v1.28.1   # pinned release; record the tag in docs/POWERSYNC.md and the deploy PR
-sudo corepack enable
-sudo pnpm install --frozen-lockfile
-sudo pnpm build
-```
-
-Verify the built entrypoint against the pinned release's README. The systemd
-unit assumes `service/dist/bin.js`; if the release uses another entrypoint,
-update `ExecStart` in `powersync/powersync.service` and record the change.
-
-Create the runtime user directories:
-
-```bash
-sudo mkdir -p /etc/powersync/lofipix /var/lib/powersync
-sudo chown -R powersync:powersync /var/lib/powersync
-```
+No image build is needed — `docker-compose.yml` pulls the official image and
+mounts config from the repo folder.
 
 ## Configure
 
-`service.yaml` is copied to `/etc/powersync/lofipix/service.yaml`.
-`sync-config.yaml` is copied next to it.
+`service.yaml` and `sync-config.yaml` are committed in `powersync/` and mounted
+read-only into the container at `/etc/powersync/`.
 
-Create `/etc/powersync/lofipix/powersync.env` (mode `0640`, root:powersync) with
-the values from `.env.<region>`:
+Copy `powersync.env.example` to `powersync.env` and fill in real values
+(`powersync.env` is git-ignored):
+
+```bash
+cp powersync.env.example powersync.env
+# edit powersync.env
+```
 
 ```bash
 PS_POSTGRES_URI=postgres://lofipix:...@127.0.0.1:5432/lofipix
@@ -71,25 +57,35 @@ PS_LOG_LEVEL=info
 PS_LOG_FORMAT=pretty
 ```
 
-Install the unit:
+## Start / stop
 
 ```bash
-sudo cp powersync/powersync.service /etc/systemd/system/powersync.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now powersync
+docker compose up -d      # start in background
+docker compose down       # stop and remove the container
+docker compose logs -f    # follow logs
+docker compose restart    # restart
 ```
 
 PowerSync creates/uses its logical-replication publication on first start. If
-the role cannot create it, create the publication manually for the four tables
-and restart the service.
+the role cannot create it, create the publication manually and restart.
+
+## How it connects
+
+The container uses the **host network** (`network_mode: host`), so:
+
+- PowerSync binds `5677` directly on the host — no port mapping.
+- The JWKS endpoint at `http://127.0.0.1:5634/api/auth/jwks` is reached by
+  connecting to the API service running on the same host, with no docker
+  network needed.
+- `PS_POSTGRES_URI` and `PS_STORAGE_URI` connect to PostgreSQL on
+  `127.0.0.1` as before.
 
 ## Verify
 
 ```bash
 curl -fsS http://127.0.0.1:5677/probes/liveness
 curl -fsS http://127.0.0.1:5677/probes/readiness
-sudo systemctl status powersync --no-pager
-sudo journalctl -u powersync -f
+docker compose logs powersync --tail 50
 ```
 
 The service is bound to loopback. nginx is the only public entrypoint.
@@ -116,15 +112,25 @@ loopback-only and uses the `lofipix` audience.
 
 ## Upgrade and rollback
 
-1. Stop the unit: `sudo systemctl stop powersync`.
-2. Check out the new pinned tag in `/opt/powersync`, rebuild, and update the
-   recorded version in `docs/POWERSYNC.md`.
-3. Keep the previous checkout/tag available for rollback.
-4. `sudo systemctl start powersync` and run both probes.
+1. Record the new tag in `docs/POWERSYNC.md`.
+2. Edit the `image:` line in `docker-compose.yml`.
+3. `docker compose pull && docker compose up -d`.
+4. Run both probes. To rollback, restore the previous tag and repeat.
 
-The `Deploy PowerSync` GitHub Actions workflow only syncs `powersync/` config,
-reloads systemd and restarts the unit. It never rebuilds the service from
-source.
+## Requirements beyond the basic image
+
+The upstream image is sufficient. No MongoDB, Redis or other dependencies are
+needed because bucket storage is PostgreSQL, configured via `PS_STORAGE_URI`.
+
+The only additions are:
+
+- **Host network** — so PowerSync binds `5677` on the host and reaches the
+  API's JWKS at `127.0.0.1:5634` directly.
+- **Mounted config** — `service.yaml` and `sync-config.yaml` are bind-mounted
+  read-only from the repo folder, so config edits take effect on
+  `docker compose up -d` without rebuilding.
+- **`powersync.env`** — environment variables supplied to the container; never
+  committed.
 
 ## Troubleshooting
 
@@ -133,8 +139,9 @@ source.
 - **No rows on device**: check the user's active organisation, the
   `organization_id` claim, and the joins for `photos`/`photo_locations`.
 - **Replication errors**: verify `wal_level = logical`, the `REPLICATION` role
-  attribute, table `SELECT` grants and the publication.
-- **Bucket storage errors**: verify `PS_STORAGE_URI`, the `powersync` schema and
-  that `lofipix` can `CREATE` in it.
-- **Uploads stuck**: check the API upload endpoint and `journalctl -u powersync`;
-  `409` responses are auto-rebased by the mobile connector.
+  attribute and the publication.
+- **Bucket storage errors**: verify `PS_STORAGE_URI`, the `powersync` schema
+  and that `lofipix` can `CREATE` in it.
+- **Uploads stuck**: check the API upload endpoint and
+  `docker compose logs powersync`; `409` responses are auto-rebased by the
+  mobile connector.
