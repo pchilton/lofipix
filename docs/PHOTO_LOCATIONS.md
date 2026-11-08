@@ -68,7 +68,7 @@ Implemented in `packages/db/models/`:
 
 | File | Contents |
 | --- | --- |
-| `packages/db/models/storage-provider.ts` | `pgEnum('storage_provider_type', …)`, Drizzle table `storage_providers`, `storageProviderSelectSchema` (public), `storageProviderServerSchema` (adds the server-only `encrypted_data` column), `storageProviderInsertSchema` (server-only), types `StorageProvider` / `NewStorageProvider`. |
+| `packages/db/models/storage-provider.ts` | `pgEnum('storage_provider_type', …)`, Drizzle table `storage_providers`, `storageProviderSelectSchema`, `storageProviderInsertSchema`, types `StorageProvider` / `NewStorageProvider`. |
 | `packages/db/models/photo-location.ts` | Drizzle table `photo_locations`, `photoLocationSelectSchema` / `photoLocationInsertSchema`, types `PhotoLocation` / `NewPhotoLocation`. |
 
 Both tables are re-exported from `packages/db/schema.ts` so
@@ -90,7 +90,7 @@ ids offline.
 | `label` | `text` | Human-readable name shown in the UI, e.g. "LoFi Pix cloud", "Paul's OneDrive", "Pixel 8". Not null. |
 | `external_id` | `text` | Not null. Provider-native identity. See [Provider identity](#provider-identity). |
 | `config` | `jsonb` | Not null, default `{}`. Public, non-secret provider settings. Synced to the mobile app as part of the `storage_providers` sync stream. |
-| `encrypted_data` | `jsonb` | Not null, default `{}`. Server-only object of individually encrypted secret fields. Excluded from the PowerSync stream and never accepted from clients. |
+| `encrypted_data` | `jsonb` | Not null, default `{}`. Encrypted-at-rest JSONB column holding individually encrypted secret fields. Synced to the mobile app and returned from client-facing endpoints; only the API server holds `STORAGE_PROVIDER_CREDENTIALS_KEY` and can decrypt it. |
 | `version` | `bigint` | Server-incremented optimistic-concurrency version. Starts at 1. |
 | `deleted_at` | `timestamptz` | Tombstone. Null for live rows. |
 | `created_at` | `timestamptz` | Row creation time, `now()` by default. |
@@ -124,10 +124,8 @@ constraint is per organisation.
 ### Provider config
 
 `config` holds public provider settings and operational metadata. Secrets
-live in the separate server-only `encrypted_data` JSONB column, keyed by
-secret field name. Splitting the columns lets PowerSync sync `config` while
-excluding `encrypted_data` from the stream projection. The Zod schemas
-validate `config` per provider type.
+live in the same row's `encrypted_data` JSONB column, keyed by secret field
+name. The Zod schemas validate `config` per provider type.
 
 **Device filesystem (`opfs` / `app_fs`)**
 
@@ -236,18 +234,17 @@ prefix without changing the column type.
 
 The encryption helpers live in `packages/db/crypto.ts`:
 `encryptCredential` and `decryptCredential`. Secrets are decrypted only inside
-the API and background jobs. They are never logged, never included in a
-PowerSync stream and never returned by a client-facing endpoint.
+the API and background jobs. They are never logged; the encrypted blob is
+synced to the mobile app and returned from client-facing endpoints, but the
+plaintext is never exposed.
 
 **Public config**
 
-`storageProviderSelectSchema` exposes `config` and omits `encrypted_data`.
-Non-secret fields (`platform`, `endpoint`, `rootFolder`, `expiresAt`, `scope`,
-`tokenType`, …) remain visible. Server-only code uses
-`storageProviderServerSchema` when it needs the secret fields. API handlers
-that list providers must use the public schema, and the `storage_providers`
-PowerSync stream must keep `encrypted_data` out of its column list
-(see [PowerSync](#powersync)).
+`storageProviderSelectSchema` and `storageProviderInsertSchema` cover the full
+row including `encrypted_data`. Non-secret fields (`platform`, `endpoint`,
+`rootFolder`, `expiresAt`, `scope`, `tokenType`, …) remain visible alongside
+the encrypted blob, and the `storage_providers` PowerSync stream selects
+`storage_providers.*` (see [PowerSync](#powersync)).
 
 There is no "masked token" field: clients learn whether a provider is
 connected from its tombstone state and OAuth status, not from encrypted
@@ -489,8 +486,8 @@ whose `organization_id` claim scopes every stream.
 
 - `albums` and `storage_providers` filter directly on `organization_id`;
 - `photos` and `photo_locations` join through `albums`;
-- `storage_providers` selects its public columns including `config`, but
-  excludes `encrypted_data`;
+- `storage_providers` is synced in full, including the encrypted-at-rest
+  `encrypted_data` column;
 - tombstones are synced and the mobile app filters `deleted_at is null`.
 
 `opfs` and `app_fs` providers and locations can be created in the mobile app's
@@ -516,9 +513,9 @@ include `encrypted_data`.
   membership. A provider, photo and location are always reconciled to the same
   organisation; cross-organisation ids are rejected.
 - **Credentials**: each secret field in the `encrypted_data` column is
-  individually encrypted with AES-256-GCM, server-only, never synced,
-  returned or logged.
-  Decrypt only in the API process or a trusted worker.
+  individually encrypted with AES-256-GCM. The encrypted blob is synced to the
+  mobile app and returned from client-facing endpoints; it is never logged and
+  is only decrypted in the API process or a trusted worker.
 - **Object access**: S3 is private. Clients receive short-lived
   pre-signed URLs scoped to one object; they never hold S3 credentials.
 - **Key validation**: `object_key` is validated against the deterministic
@@ -554,9 +551,9 @@ All are API-only, authenticated, and scoped to the caller's organisation.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `GET` | `/storage-providers` | List providers using the public schema (`config` without `encrypted_data`). |
+| `GET` | `/storage-providers` | List providers. The full row, including the encrypted-at-rest `encrypted_data`, is returned. |
 | `POST` | `/storage-providers` | Create a non-`opfs`/non-`app_fs` provider. `opfs`/`app_fs` providers are created by the mobile app and arrive through the upload queue. |
-| `PATCH` | `/storage-providers/:id` | Update `label` and non-secret `config` fields; preserve and never accept `encrypted_data`. |
+| `PATCH` | `/storage-providers/:id` | Update `label` and non-secret `config` fields; `encrypted_data` is preserved when present. |
 | `DELETE` | `/storage-providers/:id` | Tombstone/disconnect a provider. |
 | `POST` | `/storage-providers/:id/reconnect` | Start the OAuth flow for a tombstoned cloud provider. |
 | `GET` | `/storage-providers/oauth/:type/callback` | OAuth callback; stores `encrypted_data`. |
@@ -569,7 +566,7 @@ All are API-only, authenticated, and scoped to the caller's organisation.
 
 Completed in this task:
 
-- `packages/db/models/storage-provider.ts` — `storage_providers` table, enum, public/server/insert Zod schemas, separate `encrypted_data` column, types.
+- `packages/db/models/storage-provider.ts` — `storage_providers` table, enum, `storageProviderSelectSchema` / `storageProviderInsertSchema` Zod schemas, `encrypted_data` column, types.
 - `packages/db/models/photo-location.ts` — `photo_locations` table with version and parent FKs, Zod schemas, types.
 - `packages/db/crypto.ts` — per-field AES-256-GCM encryption/decryption.
 - `packages/db/schema.ts` — re-exports both new models.

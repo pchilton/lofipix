@@ -99,6 +99,7 @@ export const syncTableColumnMap = {
     label: 'label',
     external_id: 'externalId',
     config: 'config',
+    encrypted_data: 'encryptedData',
     version: 'version',
     originated_at: 'originatedAt',
     created_at: 'createdAt',

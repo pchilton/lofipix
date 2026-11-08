@@ -90,7 +90,7 @@ Website ↔ Server API Gateway
 Mobile Read-Path Data Sync (Server → Mobile)
 
 - Protocol: PowerSync Sync Streams at `https://<region>.lofipix.app/powersync/`. The service listens on loopback; nginx terminates TLS and supports WebSocket upgrade.
-- Data Boundary Control: `POST /api/sync/token` authenticates the Better Auth session, requires exactly one active organisation and signs a 5-minute JWT with an `organization_id` claim. PowerSync verifies it against the API JWKS (`audience: powersync`). `albums` and `storage_providers` filter directly on `organization_id`; `photos` and `photo_locations` join through `albums`. `storage_providers.encrypted_data` is never selected.
+- Data Boundary Control: `POST /api/sync/token` authenticates the Better Auth session, requires exactly one active organisation and signs a 5-minute JWT with an `organization_id` claim. PowerSync verifies it against the API JWKS (`audience: powersync`). `albums` and `storage_providers` filter directly on `organization_id`; `photos` and `photo_locations` join through `albums`. `storage_providers.encrypted_data` is an encrypted-at-rest JSONB column that is synced to the mobile app and returned from client-facing endpoints; only the API server holds `STORAGE_PROVIDER_CREDENTIALS_KEY` and can decrypt it.
 - Local Reactivity: PowerSync owns SQLite; TanStack DB collections provide live queries and optimistic writes, including offline states.
 - Deletes: Tombstones are synced; reads filter `deleted_at is null`.
 

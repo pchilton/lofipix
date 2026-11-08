@@ -25,8 +25,10 @@ The website does not use PowerSync or local persistence.
   through `albums`.
 - Tombstones (`deleted_at`) are synced. The app filters `deleted_at is null` in
   reads, so deletes converge without losing audit history.
-- `storage_providers.encrypted_data` is server-only and is never selected by a
-  sync stream or accepted from an upload.
+- `storage_providers.encrypted_data` is an encrypted-at-rest JSONB column. It
+  is synced to the mobile app (the `storage_providers` stream selects
+  `storage_providers.*`) and returned from client-facing endpoints; only the
+  API server holds `STORAGE_PROVIDER_CREDENTIALS_KEY` and can decrypt it.
 
 ## Sync Streams
 
@@ -82,7 +84,8 @@ each entry in its own transaction:
 - `DELETE` requires `version = baseVersion` and writes a `deleted_at` tombstone.
 - `photos` and `photo_locations` are checked through their parent album;
   `photo_locations` also checks the storage provider's organisation.
-- `storage_providers.encrypted_data` is rejected/stripped.
+- `storage_providers.encrypted_data` is accepted on uploads and preserved as-is
+  (it is encrypted at rest; the API never decrypts it during sync).
 
 Results are `applied`, `conflict`, `rejected` or `already-applied`.
 

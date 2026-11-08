@@ -11,7 +11,6 @@ import {
   photos,
   storageProviderInsertSchema,
   storageProviders,
-  type SyncTableName,
   type SyncUploadEntry,
   type SyncUploadResult,
 } from '@lofipix/db/schema';
@@ -76,7 +75,6 @@ const storageProviderCreatePayload = storageProviderInsertSchema
   .omit({
     id: true,
     organizationId: true,
-    encryptedData: true,
     version: true,
     deletedAt: true,
     updatedAt: true,
@@ -100,9 +98,6 @@ function payloadFor(entry: SyncUploadEntry): Record<string, unknown> {
   if (entry.table === 'albums' || entry.table === 'storage_providers') {
     delete payload.organizationId;
   }
-  if (entry.table === 'storage_providers') {
-    delete payload.encryptedData;
-  }
   if (entry.table === 'storage_providers' && typeof payload.config === 'string') {
     payload.config = JSON.parse(payload.config) as unknown;
   }
@@ -112,14 +107,6 @@ function payloadFor(entry: SyncUploadEntry): Record<string, unknown> {
     }
   }
   return payload;
-}
-
-function publicRow(table: SyncTableName, row: Row): Row {
-  if (table !== 'storage_providers') {
-    return row;
-  }
-  const { encryptedData: _encryptedData, ...safe } = row;
-  return safe;
 }
 
 function rejected(entry: SyncUploadEntry, error: string): SyncUploadResult {
@@ -134,7 +121,7 @@ function alreadyApplied(
     ? {
         opId: entry.opId,
         status: 'already-applied',
-        record: publicRow(entry.table, row),
+        record: row,
       }
     : { opId: entry.opId, status: 'already-applied' };
 }
@@ -143,7 +130,7 @@ function conflict(entry: SyncUploadEntry, row: Row): SyncUploadResult {
   return {
     opId: entry.opId,
     status: 'conflict',
-    record: publicRow(entry.table, row),
+    record: row,
   };
 }
 
@@ -151,7 +138,7 @@ function applied(entry: SyncUploadEntry, row: Row): SyncUploadResult {
   return {
     opId: entry.opId,
     status: 'applied',
-    record: publicRow(entry.table, row),
+    record: row,
   };
 }
 
