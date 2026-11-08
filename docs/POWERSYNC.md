@@ -142,8 +142,7 @@ PowerSync publication. See `powersync/README.md` for the exact SQL.
 | `PS_LOG_LEVEL` | no | Service log level. |
 | `PS_LOG_FORMAT` | no | `pretty` or `json`. |
 
-These live in `/etc/lofipix/powersync/powersync.env` on the VPS and are
-represented in `.env.<region>` for local/reference use. They are read by the
+These live in `/etc/powersync/lofipix/powersync.env` on the VPS. They are read by the
 systemd unit, not by the API.
 
 ## Operations

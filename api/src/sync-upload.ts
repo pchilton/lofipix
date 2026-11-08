@@ -19,6 +19,7 @@ import {
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Row = Record<string, unknown>;
 
+// PMC: should this come from packages/db/models/storage-providers
 const providerTypeSchema = z.enum([
   'opfs',
   'app_fs',

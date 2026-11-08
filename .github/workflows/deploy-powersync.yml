@@ -16,7 +16,7 @@ concurrency:
 env:
   DEPLOY_HOST: oceania.lofipix.app
   DEPLOY_USER: ubuntu
-  REMOTE_CONFIG: /etc/lofipix/powersync
+  REMOTE_CONFIG: /etc/powersync/lofipix
 
 jobs:
   deploy:

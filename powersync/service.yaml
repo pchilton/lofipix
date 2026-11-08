@@ -1,5 +1,5 @@
 # PowerSync service configuration for lofipix.
-# Values are supplied by /etc/lofipix/powersync/powersync.env.
+# Values are supplied by /etc/powersync/lofipix/powersync.env.
 replication:
   connections:
     - type: postgresql

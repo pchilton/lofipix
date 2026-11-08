@@ -57,16 +57,16 @@ update `ExecStart` in `powersync/powersync.service` and record the change.
 Create the runtime user directories:
 
 ```bash
-sudo mkdir -p /etc/lofipix/powersync /var/lib/powersync
+sudo mkdir -p /etc/powersync/lofipix /var/lib/powersync
 sudo chown -R powersync:powersync /var/lib/powersync
 ```
 
 ## Configure
 
-`service.yaml` is copied to `/etc/lofipix/powersync/service.yaml`.
+`service.yaml` is copied to `/etc/powersync/lofipix/service.yaml`.
 `sync-config.yaml` is copied next to it.
 
-Create `/etc/lofipix/powersync/powersync.env` (mode `0640`, root:powersync) with
+Create `/etc/powersync/lofipix/powersync.env` (mode `0640`, root:powersync) with
 the values from `.env.<region>`:
 
 ```bash

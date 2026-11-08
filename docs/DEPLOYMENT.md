@@ -61,7 +61,7 @@ installed natively (no Docker); see `powersync/README.md`.
 `powersync/sync-config.yaml` and the unit to the VPS, reloads systemd, restarts
 the `powersync` unit and checks `/probes/liveness`. It does not rebuild the
 service. The service reads `PS_*` values from
-`/etc/lofipix/powersync/powersync.env`.
+`/etc/powersync/lofipix/powersync.env`.
 
 ## API deployment (oceania)
 
