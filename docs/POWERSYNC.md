@@ -7,7 +7,7 @@ device. The app reads and writes through TanStack DB collections over that
 database.
 
 ```text
-PostgreSQL ──logical replication──► PowerSync Service (loopback :8080)
+PostgreSQL ──logical replication──► PowerSync Service (loopback :5677)
                                         │  Sync Streams + JWKS
                                         ▼
 Mobile ──JWT──► https://<region>.lofipix.app/powersync/
@@ -122,7 +122,7 @@ The service is configured by `powersync/`:
 PowerSync is built from pinned `powersync-ja/powersync-service` release
 **v1.28.1** and run as the `powersync` user. Upstream only supports Docker, so the source build
 is an explicit, documented deviation. The service listens on
-`127.0.0.1:8080`; nginx exposes `/powersync/` with WebSocket upgrade and no
+`127.0.0.1:5677`; nginx exposes `/powersync/` with WebSocket upgrade and no
 buffering.
 
 The bucket-storage backend is PostgreSQL on the existing server, in the
@@ -141,7 +141,7 @@ PowerSync publication. See `powersync/README.md` for the exact SQL.
 | --- | --- | --- |
 | `PS_POSTGRES_URI` | yes | Source PostgreSQL connection for logical replication. |
 | `PS_STORAGE_URI` | yes | Bucket-storage PostgreSQL connection. |
-| `PS_PORT` | yes | Service port; `8080`. |
+| `PS_PORT` | yes | Service port; `5677`. |
 | `PS_LOG_LEVEL` | no | Service log level. |
 | `PS_LOG_FORMAT` | no | `pretty` or `json`. |
 
@@ -150,7 +150,7 @@ systemd unit, not by the API.
 
 ## Operations
 
-- Health: `curl -fsS http://127.0.0.1:8080/probes/liveness` and
+- Health: `curl -fsS http://127.0.0.1:5677/probes/liveness` and
   `/probes/readiness`.
 - Logs: `sudo journalctl -u powersync -f`.
 - Config deploy: the `Deploy PowerSync` GitHub Actions workflow syncs

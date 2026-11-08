@@ -72,7 +72,7 @@ the values from `.env.<region>`:
 ```bash
 PS_POSTGRES_URI=postgres://lofipix:...@127.0.0.1:5432/lofipix
 PS_STORAGE_URI=postgres://lofipix:...@127.0.0.1:5432/lofipix
-PS_PORT=8080
+PS_PORT=5677
 PS_LOG_LEVEL=info
 PS_LOG_FORMAT=pretty
 ```
@@ -92,8 +92,8 @@ and restart the service.
 ## Verify
 
 ```bash
-curl -fsS http://127.0.0.1:8080/probes/liveness
-curl -fsS http://127.0.0.1:8080/probes/readiness
+curl -fsS http://127.0.0.1:5677/probes/liveness
+curl -fsS http://127.0.0.1:5677/probes/readiness
 sudo systemctl status powersync --no-pager
 sudo journalctl -u powersync -f
 ```
@@ -104,7 +104,7 @@ The service is bound to loopback. nginx is the only public entrypoint.
 
 ```nginx
 location /powersync/ {
-    proxy_pass http://127.0.0.1:8080/;
+    proxy_pass http://127.0.0.1:5677/;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
