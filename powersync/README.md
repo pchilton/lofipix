@@ -30,7 +30,7 @@ schema and grants, but intentionally never drops bucket-storage data.
 ## Install
 
 Pinned release: **v1.28.1** (v1.28.x line), from the upstream official image
-`ghcr.io/powersync-ja/powersync-service`. Record the tag in
+`journeyapps/powersync-service` on Docker Hub. Record the tag in
 `docs/POWERSYNC.md` when bumping.
 
 No image build is needed — `docker-compose.yml` pulls the official image and
@@ -38,8 +38,9 @@ mounts config from the repo folder.
 
 ## Configure
 
-`service.yaml` and `sync-config.yaml` are committed in `powersync/` and mounted
-read-only into the container at `/etc/powersync/`.
+`powersync.yaml` and `sync-config.yaml` are committed in `powersync/` and mounted
+read-only into the container at `/app` (the image's WorkingDir), where the
+service reads `powersync.yaml` from CWD.
 
 Copy `powersync.env.example` to `powersync.env` and fill in real values
 (`powersync.env` is git-ignored):
@@ -54,8 +55,16 @@ PS_POSTGRES_URI=postgres://lofipix:...@127.0.0.1:5432/lofipix
 PS_STORAGE_URI=postgres://lofipix:...@127.0.0.1:5432/lofipix
 PS_PORT=5677
 PS_LOG_LEVEL=info
-PS_LOG_FORMAT=pretty
+PS_LOG_FORMAT=text
 ```
+
+`docker-compose.yml` loads this file with `env_file:`, which reads it
+verbatim into the container. Do **not** use `environment:` with `${VAR}`
+interpolation — that reads the shell environment or `.env`, not this file,
+and the container would start with blank values.
+
+`PS_LOG_FORMAT` accepts `text` or `json` (v1.28.1 does not accept
+`pretty`).
 
 ## Start / stop
 
@@ -126,7 +135,7 @@ The only additions are:
 
 - **Host network** — so PowerSync binds `5677` on the host and reaches the
   API's JWKS at `127.0.0.1:5634` directly.
-- **Mounted config** — `service.yaml` and `sync-config.yaml` are bind-mounted
+- **Mounted config** — `powersync.yaml` and `sync-config.yaml` are bind-mounted
   read-only from the repo folder, so config edits take effect on
   `docker compose up -d` without rebuilding.
 - **`powersync.env`** — environment variables supplied to the container; never

@@ -109,9 +109,9 @@ contract.
 
 The service is configured by `powersync/`:
 
-- `service.yaml` — source replication, Postgres bucket storage, JWKS auth, port,
-  logging and health checks.
-- `sync-config.yaml` — the four Sync Streams.
+- `powersync.yaml` — source replication, Postgres bucket storage, JWKS auth, port,
+  logging and health checks. Mounted at `/app` (the image's WorkingDir).
+- `sync-config.yaml` — the four Sync Streams. Mounted at `/app`.
 - `docker-compose.yml` — runs the upstream official image with host network,
   config and env mounted from the repo folder.
 - `powersync.env.example` — template for the env file; `powersync.env` holds
@@ -120,7 +120,7 @@ The service is configured by `powersync/`:
   rollback.
 
 PowerSync runs from pinned `powersync-ja/powersync-service` release
-**v1.28.1** (the upstream official image at `ghcr.io/powersync-ja/powersync-service`),
+**v1.28.1** (the upstream official image at `journeyapps/powersync-service`),
 managed by Docker Compose as user `paul` (rootless Docker). The container uses
 the **host network**, so the service listens on `127.0.0.1:5677` directly and
 reaches the API's JWKS at `127.0.0.1:5634` without a docker network. nginx
@@ -148,7 +148,7 @@ for the exact SQL.
 | `PS_STORAGE_URI` | yes | Bucket-storage PostgreSQL connection. |
 | `PS_PORT` | yes | Service port; `5677`. |
 | `PS_LOG_LEVEL` | no | Service log level. |
-| `PS_LOG_FORMAT` | no | `pretty` or `json`. |
+| `PS_LOG_FORMAT` | no | `text` or `json` (v1.28.1 does not accept `pretty`). |
 
 These live in `powersync/powersync.env` in the repo folder and are read by
 `docker-compose.yml`, not by the API.
