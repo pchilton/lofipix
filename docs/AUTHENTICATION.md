@@ -65,7 +65,7 @@ Token and upload responses set `Cache-Control: no-store`.
 
 ## PowerSync JWT
 
-The `jwt()` plugin signs EdDSA/Ed25519 tokens with `audience: powersync` and a
+The `jwt()` plugin signs EdDSA/Ed25519 tokens with `audience: lofipix` and a
 5-minute expiry. `POST /api/sync/token` resolves the session, requires exactly
 one active organisation, and calls `auth.api.signJWT` with:
 
@@ -74,7 +74,7 @@ one active organisation, and calls `auth.api.signJWT` with:
 ```
 
 PowerSync verifies the token against `http://127.0.0.1:5634/api/auth/jwks`
-with audience `powersync`. A user with no active organisation, or with more
+with audience `lofipix`. A user with no active organisation, or with more
 than one, gets `403`; the endpoint never mints an unscoped token. The `jwks`
 table is part of the `auth` schema and is expected by the reset script.
 

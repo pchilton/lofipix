@@ -202,7 +202,7 @@ Locations to services by locally running processes, with HMR
 - `192.168.1.15:8333/storage-cholet-lofipix/` - SeaweedFS S3 API, using path-based bucket routing
 - `192.168.1.15:5634/api/` - API queries via Hono and HMR
 - `192.168.1.15:5173/` - WWW on local port and HMR
-- `127.0.0.1:5677/` - PowerSync Service on local port (loopback only)
+- `192.168.1.15:5677/` - PowerSync Service on local port
 - Mobile: native development build connecting to `http://192.168.1.15:5634/` (Android emulators may use `10.0.2.2`)
 
 Development commands (per app, with `REGION=cholet`):

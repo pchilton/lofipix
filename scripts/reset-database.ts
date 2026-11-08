@@ -33,17 +33,6 @@ async function resetSchemas(client: postgres.Sql): Promise<void> {
   await client.unsafe('CREATE SCHEMA drizzle');
 }
 
-async function ensurePowersyncSchema(client: postgres.Sql): Promise<void> {
-  await client.unsafe(`
-    CREATE SCHEMA IF NOT EXISTS powersync;
-    GRANT USAGE, CREATE ON SCHEMA powersync TO current_user;
-    DO $$
-    BEGIN
-      EXECUTE format('GRANT CONNECT, CREATE ON DATABASE %I TO current_user', current_database());
-    END $$;
-  `);
-}
-
 async function syncAuthSchema(): Promise<void> {
   const plan = await getMigrations(auth.options, { throwOnUnsafe: false });
   await plan.runMigrations();
@@ -95,9 +84,7 @@ const client = postgres(databaseUrl, { max: 1 });
 
 try {
   await resetSchemas(client);
-  console.log('schemas recreated (auth, public).');
-  await ensurePowersyncSchema(client);
-  console.log('powersync schema ready.');
+  console.log('schemas recreated (auth, public, drizzle).');
   await syncAuthSchema();
   await pushPublicSchema();
   await verify(client);

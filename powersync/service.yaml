@@ -18,7 +18,7 @@ sync_config:
 
 client_auth:
   audience:
-    - powersync
+    - lofipix
   jwks:
     # The API runs on the same host and serves the Better Auth JWKS endpoint.
     uri: http://127.0.0.1:5634/api/auth/jwks

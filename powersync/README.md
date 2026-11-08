@@ -13,21 +13,15 @@ connects to `https://<region>.lofipix.app/powersync/`; uploads go to
 - Debian 13 / Ubuntu 24.04, Node.js 22+, pnpm, git.
 - PostgreSQL 14+ with `wal_level = logical`.
 - The API is running and serving `/api/auth/jwks` on `127.0.0.1:5634`.
-- The `lofipix` database user can read the four synced tables, create/alter the
-  PowerSync publication, and use the `powersync` schema.
+- The `lofipix` database user is the **owner** of the `lofipix` database
+  (CONNECT, CREATE and SELECT on all schemas are granted by ownership) and
+  has the `REPLICATION` attribute. The API and PowerSync both connect as
+  `lofipix` over `127.0.0.1`.
 
 ```sql
+-- lofipix owns the database, so CONNECT, CREATE and SELECT on all schemas
+-- come from ownership. Only REPLICATION is added explicitly.
 ALTER ROLE lofipix WITH REPLICATION;
-GRANT SELECT ON
-  public.albums,
-  public.photos,
-  public.photo_locations,
-  public.storage_providers
-TO lofipix;
-GRANT CONNECT, CREATE ON DATABASE lofipix TO lofipix;
-
-CREATE SCHEMA IF NOT EXISTS powersync;
-GRANT USAGE, CREATE ON SCHEMA powersync TO lofipix;
 ```
 
 `REGION=cholet bun scripts/reset-database.ts` also ensures the `powersync`
@@ -118,7 +112,7 @@ location /powersync/ {
 ```
 
 Clients authenticate with the JWT from `POST /api/sync/token`; the JWKS URL is
-loopback-only and uses the `powersync` audience.
+loopback-only and uses the `lofipix` audience.
 
 ## Upgrade and rollback
 

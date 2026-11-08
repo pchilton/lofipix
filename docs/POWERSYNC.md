@@ -25,10 +25,6 @@ The website does not use PowerSync or local persistence.
   through `albums`.
 - Tombstones (`deleted_at`) are synced. The app filters `deleted_at is null` in
   reads, so deletes converge without losing audit history.
-- `storage_providers.encrypted_data` is an encrypted-at-rest JSONB column. It
-  is synced to the mobile app (the `storage_providers` stream selects
-  `storage_providers.*`) and returned from client-facing endpoints; only the
-  API server holds `STORAGE_PROVIDER_CREDENTIALS_KEY` and can decrypt it.
 
 ## Sync Streams
 
@@ -41,11 +37,11 @@ The website does not use PowerSync or local persistence.
 1. The mobile app stores a Better Auth bearer token.
 2. `POST /api/sync/token` resolves the session, requires exactly one active
    organisation and calls the Better Auth JWT signer.
-3. The token has `sub`, `aud: powersync`, `iat`/`exp` (5 minutes) and
+3. The token has `sub`, `aud: lofipix`, `iat`/`exp` (5 minutes) and
    `organization_id`.
 4. PowerSync verifies the token against the Better Auth JWKS at
    `http://127.0.0.1:5634/api/auth/jwks` with `client_auth.audience:
-   [powersync]`.
+   [lofipix]`.
 
 A user with no active organisation, or with more than one, receives `403`; no
 unscoped token is ever issued. The mobile connector calls the token endpoint
@@ -131,9 +127,10 @@ ensures the schema and grants but never drops bucket data.
 
 ## Source database
 
-PostgreSQL must have `wal_level = logical`. The `lofipix` role needs
-`REPLICATION`, `SELECT` on the four tables, and permission to create/alter the
-PowerSync publication. See `powersync/README.md` for the exact SQL.
+PostgreSQL must have `wal_level = logical`. The `lofipix` role is the owner
+of the `lofipix` database (CONNECT, CREATE and SELECT on all schemas come
+from ownership) and has the `REPLICATION` attribute. See `powersync/README.md`
+for the exact SQL.
 
 ## Environment variables
 

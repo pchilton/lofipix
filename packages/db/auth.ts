@@ -90,7 +90,7 @@ export const auth = betterAuth({
       },
       jwt: {
         issuer: baseURL,
-        audience: 'powersync',
+        audience: 'lofipix',
         expirationTime: '5m',
         definePayload: ({ session }) => ({
           organization_id: session.activeOrganizationId ?? null,
