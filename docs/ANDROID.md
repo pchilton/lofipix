@@ -27,23 +27,22 @@ Record ids use `uuidv7()` from the `uuid` package (see AGENTS.md), minted offlin
 
    ```bash
    sudo apt update
-   sudo apt install -y curl unzip wget libc6 libncurses5 libstdc++6 lib32z1
+   sudo apt install -y curl unzip wget libc6 libncurses6 libstdc++6 lib32z1
    ```
 
    AGP 8.x builds require a JDK; Android Studio bundles one, but Gradle command-line
-   builds need a system JDK:
+   builds need a system JDK. Debian 13 (trixie) defaults to OpenJDK 21:
 
    ```bash
-   sudo apt install -y openjdk-17-jdk
+   sudo apt install -y openjdk-21-jdk
    ```
+
+   (Any JDK 17 or later works; `java -version` should report 17+.)
 
 2. Download Android Studio:
 
-   ```bash
-   wget https://redirector.gvt1.com/edgedl/android/studio/ide-zips/<latest>/android-studio-<version>-linux.tar.gz
-   ```
+   Visit: https://developer.android.com/studio
 
-   Get the current `<latest>` URL from https://developer.android.com/studio.
 
 3. Extract to `/opt` and launch:
 
@@ -55,17 +54,7 @@ Record ids use `uuidv7()` from the `uuid` package (see AGENTS.md), minted offlin
    On first run, Android Studio downloads additional components and prompts for
    the SDK location.
 
-4. Add a desktop entry (`~/.local/share/applications/android-studio.desktop`) so it
-   appears in the applications menu:
-
-   ```ini
-   [Desktop Entry]
-   Name=Android Studio
-   Exec=/opt/android-studio/bin/studio.sh %f
-   Icon=/opt/android-studio/bin/studio.png
-   Type=Application
-   Categories=Development;IDE;
-   ```
+4. On the settings menu "Add launch icon"
 
 5. Add SDK tools to PATH in `~/.bashrc` / `~/.zshrc`:
 
@@ -82,40 +71,11 @@ Record ids use `uuidv7()` from the `uuid` package (see AGENTS.md), minted offlin
    sdkmanager --version
    ```
 
-## Downloading the Android SDK and Android emulator
+## SDK via settings
 
-Use Android Studio's SDK Manager (`Tools > SDK Manager` in Studio, or `sdkmanager`
-from the command line):
-
-### Via Android Studio UI
-
-- **SDK Platforms tab**: install `Android 15.0 ("Vanilla Ice Cream")` (API 36).
-- **SDK Tools tab**: install
-  - `Android SDK Build-Tools` (36.0.0)
-  - `Android SDK Platform-Tools`
-  - `Android Emulator`
-  - `Android SDK Command-line Tools (latest)`
-  - `Google Play Intel x86 Atom System Image` or `Google APIs ARM 64 v8a System Image`
-    (for the emulator; match the CPU architecture of your host — x86_64 on most PCs,
-    arm64 on Apple Silicon).
-
-### Via command line
-
-```bash
-# List available packages
-sdkmanager --list
-
-# Install what the lofipix app needs
-sdkmanager "platform-tools" \
-           "platforms;android-36" \
-           "build-tools;36.0.0" \
-           "emulator" \
-           "cmdline-tools;latest" \
-           "system-images;android-36;google_apis_playstore;x86_64"
-
-# Accept any remaining licenses
-sdkmanager --licenses
-```
+Click on the settings icon on the splash screen.
+Languages & Frameworks > Android SDK
+Android 16.0 (Baklava) - 36.1
 
 ### Create an emulator (AVD)
 
