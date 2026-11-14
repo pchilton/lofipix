@@ -78,6 +78,9 @@ The app knows the user and their single active organisation.
 
 Cut-down album view, reverse created order, sync progress visible.
 
+- On login, check camera access and request permission; if it has been denied,
+  direct the user to device Settings.
+- **Settings** opens the Settings page from the Dashboard.
 - **Create Album card** (prominent, top):
   - Name (required, e.g. license plate), Notes (optional freetext, stored as
     paragraphs), Start button.
@@ -93,12 +96,18 @@ Cut-down album view, reverse created order, sync progress visible.
   (device-only / queued / synced).
 - Tap any album → Finish Album (review) or Take Photos (add more).
 
+### Settings
+
+Account settings opened from Dashboard. The **Log out** button is anchored at the
+bottom of the page; it revokes the Better Auth session when online, clears the
+local Keychain token, and returns to Welcome.
+
 ### Take Photos (`/albums/:id/capture`)
 
 Full-screen native camera for the current album.
 
-- Camera preview; permission requested only on this screen, with loading,
-  denied and unavailable states.
+- Camera preview; check the granted permission and show loading, denied and
+  unavailable states.
 - Capture button (large, central); each shot is compressed, written to the
   documents directory, and inserted as a local SQLite row instantly.
 - Thumbnail strip: last three captures.
@@ -181,11 +190,17 @@ The full JWT/upload/rebase contract is in `docs/POWERSYNC.md`.
 
 ## Authentication
 
-- Better Auth bearer plugin on the API; the mobile client stores the token in
-  `react-native-keychain`.
-- The non-secret session profile (user id, email, name, active organisation) is
-  cached in AsyncStorage.
-- API token and upload requests send `Authorization: Bearer`.
+- Native auth requests send the registered `Origin: lofipix://` header required by
+  Better Auth's origin validation.
+- Email/password sign-in captures Better Auth's `set-auth-token` response header
+  and securely stores the bearer token in `react-native-keychain`.
+- The saved email is the Keychain account name and restores the dashboard on
+  later launches.
+- Authenticated API requests send `Authorization: Bearer`.
+- Log out invalidates the Better Auth session when possible and always clears the
+  local Keychain token.
+- Failed sign-in requests log their method, URL and error in development only;
+  credentials and bearer tokens are never logged.
 - A `401`/`403` marks the session stale and prompts re-login; local cached data is
   retained until sign-out.
 

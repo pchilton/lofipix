@@ -163,6 +163,14 @@ adb reverse tcp:8081 tcp:8081
 
 Then reload the app (shake device → Reload, or `adb shell input keyevent 82` to open the dev menu).
 
+### View development logs
+
+```bash
+adb logcat -s ReactNativeJS
+```
+
+For a specific device, use `adb -s <serial> logcat -s ReactNativeJS`. Failed sign-in requests in development log the method, URL and error message without credentials or tokens.
+
 ### 5. Use the device in Android Studio
 
 1. Open `mobile/android/` in Android Studio (or open the project root and let it sync Gradle).
