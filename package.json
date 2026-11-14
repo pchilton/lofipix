@@ -1,5 +1,5 @@
 {
-  "name": "lofipix-monorepo",
+  "name": "lofipix",
   "type": "module",
   "private": true,
   "workspaces": [

@@ -42,7 +42,7 @@ jobs:
 
       - name: Build Release Bundle (.aab)
         env:
-          ANDROID_STORE_FILE: keystore.jks
+          ANDROID_STORE_FILE: ${{ github.workspace }}/mobile/android/app/keystore.jks
           ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
@@ -50,13 +50,23 @@ jobs:
           cd mobile/android
           ./gradlew bundleRelease
 
-      - name: Upload to Google Play (Internal Testing)
+      - name: Release artifact details
+        working-directory: mobile/android/app/build/outputs/bundle/release
+        run: |
+          AAB=app-release.aab
+          SIZE=$(stat -c '%s' "$AAB")
+          BUILT=$(stat -c '%y' "$AAB")
+          SHA256=$(sha256sum "$AAB" | cut -d ' ' -f1)
+          echo "Release file: $AAB"
+          echo "Size: $SIZE bytes ($(numfmt --to=iec --suffix=B "$SIZE"))"
+          echo "Built: $BUILT"
+          echo "SHA-256: $SHA256"
+          cat output-metadata.json
+
+      - name: Upload to Google Play (internal track)
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: app.lofipix
           releaseFiles: mobile/android/app/build/outputs/bundle/release/app-release.aab
-          track: internal
-
-      - name: Placeholder for Google Play deployment
-        run: echo "COMPLETED"
+          tracks: internal
