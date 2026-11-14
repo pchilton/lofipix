@@ -12,7 +12,7 @@
     "@lofipix/env": "workspace:*",
     "better-auth": "1.7.11",
     "drizzle-orm": "0.45.4",
-    "postgres": "latest",
+    "postgres": "4.1.1",
     "uuid": "^14"
   },
   "devDependencies": {
