@@ -35,5 +35,20 @@ jobs:
           cd mobile
           npm install
 
+      - name: Decode Keystore
+        run: |
+          cd mobile/android/app
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > keystore.jks
+
+      - name: Build Release Bundle (.aab)
+        env:
+          ANDROID_STORE_FILE: keystore.jks
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          cd mobile/android
+          ./gradlew bundleRelease
+
       - name: Placeholder for Google Play deployment
         run: echo "COMPLETED"
