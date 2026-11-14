@@ -60,7 +60,7 @@ React Native cannot render DOM `<svg>` elements, so the native app does not use
 
 - Icons come from the same `@iconify-json/*` packages.
 - `mobile/scripts/generate-icons.ts` extracts only the icons named in its list
-  into `mobile/src/icons/registry.ts`; run `cd mobile && bun run icons:generate`
+  into `mobile/src/icons/registry.ts`; run `npm run icons:generate` from `mobile/`
   after changing the list. The generated registry is committed.
 - `mobile/src/icons/Icon.tsx` renders the registry through `react-native-svg`.
 - Only statically referenced icons are included; no dynamic lookups.
@@ -74,10 +74,10 @@ bun add @iconify-json/<prefix>
 ```
 
 Then use `~icons/<prefix>/<name>` on web. For mobile, add the collection under
-`mobile/` (`bun add @iconify-json/<prefix> -d`), add the icon names to
-`mobile/scripts/generate-icons.ts`, and run `bun run icons:generate`. The plugin
-resolves web collections from `packages/ui`, so the web plugin configuration does
-not change.
+`mobile/` (`npm install --save-dev @iconify-json/<prefix>`), add the icon names to
+`mobile/scripts/generate-icons.ts`, and run `npm run icons:generate` from
+`mobile/`. The plugin resolves web collections from `packages/ui`, so the web
+plugin configuration does not change.
 
 ## Rules
 
@@ -91,7 +91,7 @@ not change.
 
 ## Verification
 
-- `bun run typecheck` in `packages/ui` (and later `www`/`mobile`).
+- `bun run typecheck` in `packages/ui`; `npm run typecheck` from `mobile/`.
 - `bun run test` in `packages/ui` runs the `Icons/Collections` story, which
   renders `lucide/camera` and `mdi/car-wrench` and asserts the SVG classes.
 - `bun run build` in `www`; the built JS contains the icon path data and no

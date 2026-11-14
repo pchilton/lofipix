@@ -1,19 +1,46 @@
 # Mobile app (`mobile/`) — Storyboard
 
-Offline-first capture app for iOS and Android. It talks directly to the API. There is no PWA build.
+Offline-first capture app for iOS and Android. It talks directly to the API. There is no PWA build. The app is being rebuilt in small, verifiable increments from a fresh bare React Native CLI app. Each increment must continue to build and run on a connected Android device before the next screen or feature is added. The previous implementation is retained in `reference.mobile/` for reference only; it is not the active app or a source of buildable code.
 
 Stack: bare React Native CLI (no Expo runtime), React Navigation native-stack,
 embedded SQLite managed by PowerSync, Better Auth.
 
-Camera module: `react-native-vision-camera`
-Filesystem: `react-native-fs`
-Data sync: `@powersync/react-native`
-Auth bearer tokens: `react-native-keychain`
+Mobile tooling: Node.js via ASDF (`mobile/.tool-versions`) and npm
+(`mobile/package-lock.json`); `mobile/` is not part of the root Bun workspace.
 
-`react-native-svg`,
-`@bam.tech/react-native-image-resizer`,
-`@react-native-community/netinfo`
-`@react-native-async-storage/async-storage`.
+## Native dependencies and setup order
+
+Add and verify native modules incrementally, rather than installing the full target stack up front. After each dependency or native configuration change, build and launch the Android app on a connected device. Keep the initial empty app buildable throughout.
+
+Target native modules:
+
+- Camera: `react-native-vision-camera` (VisionCamera; not Apple's VisionKit framework).
+- Photo files: `react-native-fs` for app-private document storage.
+- Local relational data and sync: `@powersync/react-native` with its OP-SQLite adapter, `@op-engineering/op-sqlite`.
+- Authentication tokens: `react-native-keychain`.
+- Network state: `@react-native-community/netinfo`.
+- Session profile storage: `@react-native-async-storage/async-storage`.
+- Image resize/compression: `@bam.tech/react-native-image-resizer`.
+- SVG rendering: `react-native-svg`.
+
+Suggested increments:
+
+1. Establish the fresh app build and launch loop on Android (see `docs/ANDROID.md`).
+2. Add navigation and one simple screen at a time, rebuilding on device after each increment.
+3. Add VisionCamera, Android camera permission configuration, and a camera permission/preview screen; verify permission denial and grant on device before wiring capture.
+4. Add app-private filesystem handling and image resize/compression; capture a test image, save it under the app documents directory, and verify it can be reopened. Never store photo bytes in SQLite.
+5. Add OP-SQLite and PowerSync; define the local schema and initialize the database, then verify a local write survives app restarts before adding remote sync.
+6. Add the PowerSync connector, auth and upload flow against the API, then verify offline writes and later sync on device.
+
+Use the installation and Android configuration instructions for each native module's version compatible with the React Native version in `mobile/package.json`. Rebuild the native app after installing or changing a native dependency; Metro reload alone does not include new native code. Keep Android permissions minimal: request camera access only when the capture screen needs it, and do not request broad media or filesystem access for app-private files.
+
+## Photo and local data boundaries
+
+- VisionCamera provides capture; it is not the photo filesystem and is distinct from the iOS VisionKit framework.
+- Store compressed JPEG bytes in app-private documents storage (for example `photos/<photo-id>.jpg`) via `react-native-fs`. Keep only metadata and the relative file path in SQLite.
+- Use PowerSync's OP-SQLite-backed database as the local relational cache and durable pending-write queue. Define tables with the PowerSync `Schema`; do not create a second SQLite database or custom DDL/migration layer.
+- Treat filesystem writes and SQLite metadata writes as separate operations: only create a photo row after its file has been written successfully, and clean up the file if row creation fails. A synced row on another device does not imply its photo bytes are present there.
+
 
 ## Core loop
 
@@ -168,10 +195,10 @@ There is no `window.location` in React Native. The app selects endpoints at
 build time:
 
 - **Development:** API `http://192.168.1.15:5634/`, website
-  `http://192.168.1.15:5173/`. Use the LAN IP; Android emulators may need
+  `http://192.168.1.15:5173/`, powersync `http://192.168.1.15:5677/`. Use the LAN IP; Android emulators may need
   `10.0.2.2` mapped to the host.
 - **Production:** API `https://oceania.lofipix.app/`, website
-  `https://www.lofipix.app/`.
+  `https://www.lofipix.app/`. powersync `https://oceania.lofipix.app/powersync/`
 
 The native app has no web build and does not use a PWA domain.
 

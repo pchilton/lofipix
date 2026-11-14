@@ -1,15 +1,17 @@
 # Android development (`mobile/android/`)
 
-Native Android side of the lofipix mobile app: bare React Native CLI (no Expo),
-React Navigation native-stack, PowerSync SQLite, built with Gradle.
+Native Android side of the lofipix mobile app: a fresh bare React Native CLI app
+(no Expo), built with Gradle. The mobile app is being developed in small
+increments; keep the app building and launching on a connected Android device
+at every step. See `docs/MOBILE.md` for the target camera, file storage, and
+PowerSync design.
 
-| Package name / namespace | `app.lofipix.mobile`
-Record ids use `uuidv7()` from the `uuid` package (see AGENTS.md), minted offline on the device.
-`react-native-camera-kit`
+| Setting | Value |
+| --- | --- |
+| Package name / namespace | `app.lofipix.mobile` |
+| Record IDs | UUIDv7 via `uuidv7()` from the `uuid` package; generated offline on-device |
 
-
-
-### Android Studio
+## Android Studio
 
 Download and install [Android Studio](https://developer.android.com/studio).
 
@@ -43,12 +45,38 @@ android sdk list
 
 ## Project setup
 
-Install JavaScript dependencies:
+Install the Node.js version pinned in `mobile/.tool-versions` with ASDF, then
+install the locked JavaScript dependencies with npm:
 
 ```bash
 cd mobile
+asdf install
 npm install
 ```
+
+Use `npm install` from `mobile/` when adding or changing dependencies so
+`mobile/package-lock.json` stays up to date. The mobile app is not part of the
+root Bun workspace; do not use Bun in `mobile/`.
+
+## Incremental Android development
+
+Use the device build as an acceptance check after each small change:
+
+1. Confirm the untouched starter app builds and launches on the connected device.
+2. Add one native dependency or screen at a time, and rebuild/reinstall with
+   `npm run android` after native dependency or Android configuration changes.
+3. Keep Metro running with `npm start` in a separate terminal while iterating on
+   JavaScript/TypeScript changes. Metro reloads do not rebuild native modules.
+4. Test each native feature on the device before proceeding: camera permission
+   and preview, app-private file write/read, then PowerSync local SQLite write
+   and persistence across restarts.
+
+The active camera target is `react-native-vision-camera` (VisionCamera, not
+`react-native-camera-kit` and not Apple's VisionKit). Add its Android manifest
+permission and any required Gradle/native setup following the installation docs
+for the version compatible with the React Native version in `mobile/package.json`.
+Request camera permission only when entering capture. App-private photo files do
+not require broad external storage or media permissions.
 
 ## Running the app
 
@@ -62,16 +90,12 @@ Run on Android (requires an emulator running or a device connected with USB debu
 
 ```bash
 npm run android
-# or
-npx react-native run-android
 ```
 
 Run on iOS (macOS only, requires Xcode):
 
 ```bash
 npm run ios
-# or
-npx react-native run-ios
 ```
 
 ## Testing on a physical Android device
@@ -122,7 +146,6 @@ cd mobile
 npm start
 # in another terminal:
 npm run android
-# or: npx react-native run-android
 ```
 
 React Native will install and launch the debug APK on the connected device when `adb devices` shows exactly one device. If multiple devices/emulators are connected, specify the target:

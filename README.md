@@ -107,7 +107,7 @@ graph TD
 | `packages/db/` | Database schema (Drizzle `push`), shared Zod models and Better Auth config | TypeScript + Drizzle ORM + PostgreSQL + Better Auth (auth schema, cookie + bearer sessions) |
 | `packages/ui/` | Shared web components (ShadCN on Radix + Tailwind CSS v4), Iconify icons (unplugin-icons), Storybook component isolation, Vitest story tests | React + Radix + Tailwind CSS v4 + unplugin-icons + Storybook + Vitest, Bun |
 | `docs/` | Architecture and operations documentation | Markdown (see `ARCHITECTURE.md`, `AUTHENTICATION.md`, `POWERSYNC.md`, `MOBILE.md`, `PHOTOS.md`, `PHOTO_LOCATIONS.md`, `SHADCN.md`, `ICONS.md`, `UPTRACE.md`) |
-| `mobile/` | Native iOS/Android app, offline-first, device-only photo bytes | React Native (bare CLI) + React Navigation + SQLite (op-sqlite) + PowerSync + TanStack DB + TanStack Form + Jest + Maestro, Bun |
+| `mobile/` | Native iOS/Android app, offline-first, device-only photo bytes | React Native (bare CLI) + React Navigation + SQLite (op-sqlite) + PowerSync + TanStack DB + TanStack Form + Jest + Maestro, Node.js via ASDF + npm |
 | `powersync/` | Self-hosted PowerSync service config, sync streams, Dockerfile and systemd unit | PowerSync Service (Docker, host network) + PostgreSQL + systemd |
 | `scripts/` | Operational scripts (incl. database reset and demo seeding) | TypeScript + Bun (workspace package) |
 | `workers/` | CloudFlare Workers | JavaScript |
@@ -122,7 +122,7 @@ graph TD
 - **Sync**: self-hosted PowerSync with JWT scoping, version-checked uploads and client auto-rebase; PowerSync owns the mobile SQLite cache
 - **Backend**: Bun, Hono (central API, source of truth), Drizzle ORM, PostgreSQL (source of truth), PowerSync, pgmq for background jobs
 - **Authorization**: via the Better Auth organisation plugin (see `docs/AUTHENTICATION.md`)
-- **Package manager**: Bun (`bun install`, `bun.lock`)
+- **Package manager**: Bun for repository workspaces (`bun.lock`); `mobile/` uses npm (`mobile/package-lock.json`) with Node.js pinned by ASDF in `mobile/.tool-versions`
 - **Shared**: TypeScript (strict, no `any` in domain models), Zod (every API response and database record has a schema), Shared Models, typed API modules (no direct `fetch()` calls in components)
 - **Async state**: Every async operation has explicit loading, error, success, and offline states
 - **Database**: PostgreSQL — Better Auth tables in the `auth` schema, application tables in `public` via `drizzle-kit push`; tombstones / soft-delete rows on synced tables

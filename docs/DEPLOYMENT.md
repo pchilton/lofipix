@@ -209,4 +209,4 @@ Development commands (per app, with `REGION=cholet`):
 
 - API: `REGION=cholet bun run --hot src/index.ts` (from `api/`)
 - WWW: `REGION=cholet bun run dev` (from `www/`)
-- Mobile: `bun run android` or `bun run ios` from `mobile/`
+- Mobile: `npm run android` or `npm run ios` from `mobile/`

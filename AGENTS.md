@@ -12,7 +12,7 @@ compression), architecture diagram, directory table, and stack — read it first
 consult it during tasks, do not duplicate it in prompts.
 
 - **Web app** — React + TanStack Router (React), static export, no sync engine, ShadCN + Tailwind, Bun (`www/`)
-- **Mobile** — bare React Native + React Navigation, offline-first via embedded SQLite (`@op-engineering/op-sqlite`) managed by PowerSync + TanStack DB collections, and the app documents directory for photo bytes, Bun (`mobile/`)
+- **Mobile** — bare React Native + React Navigation, offline-first via embedded SQLite (`@op-engineering/op-sqlite`) managed by PowerSync + TanStack DB collections, and the app documents directory for photo bytes, Node.js/npm via ASDF (`mobile/`)
 - **Central API** — Hono + Bun + Drizzle ORM, source of truth (`api/`)
 - **Database** — PostgreSQL: Better Auth tables in the `auth` schema (synced by Better Auth, see `docs/AUTHENTICATION.md`); application tables in `public` (Drizzle schema + `drizzle-kit push`, `packages/db`)
 - **Storage** — SeaweedFS (S3-compatible)
@@ -50,10 +50,10 @@ Read the relevant file when a task touches its area:
 
 ## Conventions
 
-- Packages are managed by Bun: use `bun install`; the lockfile is `bun.lock`.
+- Root workspace packages are managed by Bun with `bun.lock`; `mobile/` is excluded from the root workspace and uses npm with Node.js pinned by ASDF in `mobile/.tool-versions` and the lockfile `mobile/package-lock.json`.
 - Region-specific environment lives in `.env.<REGION>` at the repo root; prefix Bun commands with the region (e.g. `REGION=cholet bun run <script>`), and `import "@lofipix/env";` loads it exactly once per process.
 - Database sync is two-step: Better Auth tables sync into the `auth` schema via `REGION=cholet bun scripts/reset-database.ts` (driven by `packages/db/auth.ts`); application tables sync into `public` via `db:push` from `packages/db`. Custom SQL (extensions, functions, views) is applied manually or in a later task — no SQL migration files in the repo.
-- Each app folder (`api/`, `www/`, `mobile/`) uses Bun for scripts and package management; `www/` and `api/` use HMR. API database access uses Drizzle with `DATABASE_URL`.
+- The root workspace apps and packages use Bun for scripts and package management; `mobile/` uses npm through Node.js selected by ASDF. `www/` and `api/` use HMR. API database access uses Drizzle with `DATABASE_URL`.
 - Shared types and Zod schemas go in `models/` and are imported by API and clients — do not re-define them locally. Database models (Drizzle tables + their Zod schemas) live in `packages/db/models/`.
 - Website code is React + TanStack Router/Query/Form with ShadCN; mobile code is React Native + React Navigation with PowerSync-managed SQLite + TanStack DB. Do not introduce SolidJS, TarkUI, PGlite or VitePWA.
 - Record ids are UUIDv7 generated with `uuidv7()` from the `uuid` package, not `Bun.randomUUIDv7()`: the mobile app is native and must mint ids offline.
