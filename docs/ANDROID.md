@@ -206,7 +206,7 @@ Node.js, Java, and Ruby versions are pinned in `mobile/.tool-versions` and manag
 ```
 nodejs 24.22.2
 ruby 3.4.10
-java openjdk-17.0.2
+java temurin-jre-17.0.21+9
 ```
 
 Run `asdf install` inside `mobile/` to install the pinned versions.
