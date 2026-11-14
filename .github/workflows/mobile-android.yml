@@ -30,5 +30,10 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
+      - name: Install Dependencies
+        run: |
+          cd mobile
+          npm install
+
       - name: Placeholder for Google Play deployment
         run: echo "COMPLETED"
