@@ -1,22 +1,19 @@
 # Mobile app (`mobile/`) — Storyboard
 
-Offline-first capture app for iOS and Android. It talks directly to the API;
-there is no web/PWA build.
+Offline-first capture app for iOS and Android. It talks directly to the API. There is no PWA build.
 
 Stack: bare React Native CLI (no Expo runtime), React Navigation native-stack,
-embedded SQLite via `@op-engineering/op-sqlite` managed by PowerSync, TanStack DB
-collections over that database, Better Auth bearer tokens in
-`react-native-keychain`, and photo bytes in the app documents directory.
-`packages/ui` is web-only ShadCN; mobile uses React Native primitives with
-shared StyleSheet tokens.
+embedded SQLite managed by PowerSync, Better Auth.
 
-Native modules: `react-native-camera-kit` (capture), `@op-engineering/op-sqlite`,
-`react-native-file-access` (documents directory and native SHA-256),
-`react-native-keychain`, `react-native-svg`, `@bam.tech/react-native-image-resizer`,
-`@react-native-community/netinfo` and `@react-native-async-storage/async-storage`.
-`react-native-camera-kit` was chosen over VisionCamera because its bare-RN setup
-has no nitro-module peer requirements. SHA-256 uses the file-access native hash
-instead of `@noble/hashes`, so large photos are not base64-decoded in JS.
+Camera module: `react-native-vision-camera`
+Filesystem: `react-native-fs`
+Data sync: `@powersync/react-native`
+Auth bearer tokens: `react-native-keychain`
+
+`react-native-svg`,
+`@bam.tech/react-native-image-resizer`,
+`@react-native-community/netinfo`
+`@react-native-async-storage/async-storage`.
 
 ## Core loop
 
