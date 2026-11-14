@@ -191,16 +191,26 @@ The full JWT/upload/rebase contract is in `docs/POWERSYNC.md`.
 
 ## Environment configuration
 
-There is no `window.location` in React Native. The app selects endpoints at
-build time:
+The app reads environment variables at native build time with `react-native-config`.
+`mobile/.env.development` is selected for Debug builds and
+`mobile/.env.production` for Release builds on Android and iOS. The values are
+exposed to TypeScript through `mobile/src/config/environment.ts` as
+`mobileEnvironment.API_URL`, `mobileEnvironment.WEB_URL`, and
+`mobileEnvironment.POWERSYNC_URL`.
+
+These files contain public endpoint URLs, not secrets. Values are embedded in
+builds, so do not put credentials or private keys in them.
 
 - **Development:** API `http://192.168.1.15:5634/`, website
-  `http://192.168.1.15:5173/`, powersync `http://192.168.1.15:5677/`. Use the LAN IP; Android emulators may need
+  `http://192.168.1.15:5173/`, PowerSync
+  `http://192.168.1.15:5677/`. Use the LAN IP; Android emulators may need
   `10.0.2.2` mapped to the host.
 - **Production:** API `https://oceania.lofipix.app/`, website
-  `https://www.lofipix.app/`. powersync `https://oceania.lofipix.app/powersync/`
+  `https://www.lofipix.app/`, PowerSync
+  `https://oceania.lofipix.app/powersync/`.
 
-The native app has no web build and does not use a PWA domain.
+For iOS, run `pod install` from `mobile/ios/` after adding or updating native
+packages. The native app has no web build and does not use a PWA domain.
 
 ## Icons and UI
 

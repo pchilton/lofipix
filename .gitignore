@@ -35,6 +35,8 @@ pids/
 # Environment
 .env
 .env.*
+!mobile/.env.development
+!mobile/.env.production
 !.env.example
 powersync.env
 
