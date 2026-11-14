@@ -6,6 +6,8 @@ import type { IconifyJSON } from '@iconify/types';
 const collections = {
   lucide: [
     'camera',
+    'eye',
+    'eye-off',
     'check',
     'chevron-left',
     'chevron-right',

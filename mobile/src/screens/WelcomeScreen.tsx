@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Icon } from '../icons/Icon';
 
 type FieldErrors = {
   email: string | null;
@@ -37,6 +38,7 @@ export function WelcomeScreen({ onSignIn }: WelcomeScreenProps) {
   const passwordInput = useRef<ElementRef<typeof TextInput>>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({
     email: null,
     password: null,
@@ -147,24 +149,51 @@ export function WelcomeScreen({ onSignIn }: WelcomeScreenProps) {
 
               <View style={styles.fieldGroup}>
                 <Text style={styles.label}>Password</Text>
-                <TextInput
-                  ref={passwordInput}
-                  accessibilityLabel="Password"
-                  autoCapitalize="none"
-                  autoComplete="current-password"
-                  maxLength={128}
-                  onChangeText={handlePasswordChange}
-                  onSubmitEditing={handleSignIn}
-                  placeholder="Enter your password"
-                  placeholderTextColor={colors.placeholder}
-                  returnKeyType="done"
-                  secureTextEntry
-                  selectionColor={colors.primary}
-                  style={[styles.input, fieldErrors.password && styles.inputError]}
-                  testID="sign-in-password"
-                  textContentType="password"
-                  value={password}
-                />
+                <View
+                  style={[
+                    styles.passwordInputContainer,
+                    fieldErrors.password && styles.inputError,
+                  ]}
+                >
+                  <TextInput
+                    ref={passwordInput}
+                    accessibilityLabel="Password"
+                    autoCapitalize="none"
+                    autoComplete="current-password"
+                    maxLength={128}
+                    onChangeText={handlePasswordChange}
+                    onSubmitEditing={handleSignIn}
+                    placeholder="Enter your password"
+                    placeholderTextColor={colors.placeholder}
+                    returnKeyType="done"
+                    secureTextEntry={!isPasswordVisible}
+                    selectionColor={colors.primary}
+                    style={styles.passwordInput}
+                    testID="sign-in-password"
+                    textContentType="password"
+                    value={password}
+                  />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      isPasswordVisible ? 'Hide password' : 'Show password'
+                    }
+                    accessibilityState={{ disabled: isSubmitting }}
+                    disabled={isSubmitting}
+                    hitSlop={8}
+                    onPress={() =>
+                      setIsPasswordVisible(current => !current)
+                    }
+                    style={styles.passwordVisibilityButton}
+                    testID="password-visibility-toggle"
+                  >
+                    <Icon
+                      color={colors.muted}
+                      name={isPasswordVisible ? 'lucide:eye-off' : 'lucide:eye'}
+                      size={20}
+                    />
+                  </Pressable>
+                </View>
                 {fieldErrors.password ? (
                   <Text
                     accessibilityRole="alert"
@@ -322,6 +351,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     minHeight: 52,
     paddingHorizontal: 14,
+  },
+  passwordInputContainer: {
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    borderColor: colors.border,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    minHeight: 52,
+    paddingRight: 6,
+  },
+  passwordInput: {
+    color: colors.text,
+    flex: 1,
+    fontSize: 16,
+    minHeight: 50,
+    paddingHorizontal: 14,
+  },
+  passwordVisibilityButton: {
+    alignItems: 'center',
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
   },
   inputError: {
     borderColor: colors.error,

@@ -101,6 +101,8 @@ Cut-down album view, reverse created order, sync progress visible.
 Account settings opened from Dashboard. The **Log out** button is anchored at the
 bottom of the page; it revokes the Better Auth session when online, clears the
 local Keychain token, and returns to Welcome.
+- Development builds include a **Revoke camera access** control that opens system
+  app settings; switch Camera off there to test the denied state.
 
 ### Take Photos (`/albums/:id/capture`)
 

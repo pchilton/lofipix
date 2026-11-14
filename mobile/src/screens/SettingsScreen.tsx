@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import {
+  Linking,
   Pressable,
   StyleSheet,
   Text,
@@ -13,6 +15,16 @@ type SettingsScreenProps = {
 };
 
 export function SettingsScreen({ email, onBack, onLogout }: SettingsScreenProps) {
+  const [permissionError, setPermissionError] = useState<string | null>(null);
+
+  const handleRevokeCameraAccess = async () => {
+    try {
+      await Linking.openSettings();
+    } catch {
+      setPermissionError('Unable to open device settings.');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.page}>
@@ -39,6 +51,32 @@ export function SettingsScreen({ email, onBack, onLogout }: SettingsScreenProps)
           </Text>
         </View>
 
+        {__DEV__ ? (
+          <View style={styles.developmentCard}>
+            <Text style={styles.sectionTitle}>Development</Text>
+            <Text style={styles.label}>
+              Open device settings and turn Camera access off to test the denied state.
+            </Text>
+            {permissionError ? (
+              <Text accessibilityRole="alert" style={styles.permissionError}>
+                {permissionError}
+              </Text>
+            ) : null}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityHint="Opens device settings to change camera access"
+              onPress={handleRevokeCameraAccess}
+              style={({ pressed }) => [
+                styles.permissionButton,
+                pressed && styles.permissionButtonPressed,
+              ]}
+              testID="revoke-camera-access-button"
+            >
+              <Text style={styles.permissionButtonText}>Revoke camera access</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
         <Pressable
           accessibilityRole="button"
           onPress={onLogout}
@@ -58,6 +96,7 @@ export function SettingsScreen({ email, onBack, onLogout }: SettingsScreenProps)
 const colors = {
   background: '#F4F7F5',
   border: '#D9E2DD',
+  error: '#B42318',
   muted: '#5E6F68',
   primary: '#176B52',
   primaryDark: '#115640',
@@ -104,6 +143,37 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 10,
     padding: 20,
+  },
+  developmentCard: {
+    backgroundColor: colors.white,
+    borderColor: colors.border,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 12,
+    marginTop: 16,
+    padding: 20,
+  },
+  permissionError: {
+    color: colors.error,
+    fontSize: 13,
+  },
+  permissionButton: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderColor: colors.primary,
+    borderRadius: 12,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingHorizontal: 14,
+  },
+  permissionButtonPressed: {
+    opacity: 0.75,
+  },
+  permissionButtonText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '700',
   },
   sectionTitle: {
     color: colors.text,

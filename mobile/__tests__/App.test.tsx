@@ -11,6 +11,7 @@ jest.mock('react-native-vision-camera', () => ({
 }));
 
 import React from 'react';
+import { Linking } from 'react-native';
 import ReactTestRenderer, {
   type ReactTestRenderer as TestRenderer,
 } from 'react-test-renderer';
@@ -51,6 +52,24 @@ test('shows the logged-out welcome screen', async () => {
   ).toBe('Welcome to LoFi Pix');
   expect(app.root.findByProps({ testID: 'sign-in-email' })).toBeTruthy();
   expect(app.root.findByProps({ testID: 'sign-in-password' })).toBeTruthy();
+  expect(
+    app.root.findByProps({ testID: 'sign-in-password' }).props.secureTextEntry,
+  ).toBe(true);
+  const passwordVisibility = app.root.findByProps({
+    testID: 'password-visibility-toggle',
+  });
+  expect(passwordVisibility.props.accessibilityLabel).toBe('Show password');
+
+  await ReactTestRenderer.act(() => passwordVisibility.props.onPress());
+  expect(
+    app.root.findByProps({ testID: 'sign-in-password' }).props.secureTextEntry,
+  ).toBe(false);
+  expect(passwordVisibility.props.accessibilityLabel).toBe('Hide password');
+
+  await ReactTestRenderer.act(() => passwordVisibility.props.onPress());
+  expect(
+    app.root.findByProps({ testID: 'sign-in-password' }).props.secureTextEntry,
+  ).toBe(true);
 });
 
 test('shows required field errors inline', async () => {
@@ -137,6 +156,18 @@ test('shows Settings and logs out to the welcome screen', async () => {
   expect(
     app.root.findByProps({ testID: 'settings-account-email' }).props.children,
   ).toBe('user@example.com');
+  if (__DEV__) {
+    const openSettings = jest
+      .spyOn(Linking, 'openSettings')
+      .mockResolvedValue();
+    await ReactTestRenderer.act(async () => {
+      await app.root
+        .findByProps({ testID: 'revoke-camera-access-button' })
+        .props.onPress();
+    });
+    expect(openSettings).toHaveBeenCalledTimes(1);
+    openSettings.mockRestore();
+  }
   const logoutButton = app.root.findByProps({ testID: 'logout-button' });
   expect(logoutButton.props.style({ pressed: false })).toContainEqual(
     expect.objectContaining({ marginTop: 'auto' }),
