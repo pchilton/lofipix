@@ -13,6 +13,7 @@ import IconLogOut from "~icons/lucide/log-out";
 import { authClient } from "./lib/auth-client";
 import Auth from "./routes/Auth";
 import Dashboard from "./routes/Dashboard";
+import Settings from "./routes/Settings";
 import Welcome from "./routes/Welcome";
 
 function Nav() {
@@ -35,6 +36,9 @@ function Nav() {
             <>
               <Link to="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
                 Dashboard
+              </Link>
+              <Link to="/settings" className="text-sm text-muted-foreground hover:text-foreground">
+                Settings
               </Link>
               <Button variant="outline" size="sm" onClick={handleSignOut}>
                 <IconLogOut />
@@ -116,7 +120,18 @@ const dashboardRoute = createRoute({
   },
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, authRoute, dashboardRoute]);
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/settings",
+  component: Settings,
+  beforeLoad: async ({ location }) => {
+    if (!(await signedInUser())) {
+      throw redirect({ to: "/auth", search: { redirect: location.href } });
+    }
+  },
+});
+
+const routeTree = rootRoute.addChildren([indexRoute, authRoute, dashboardRoute, settingsRoute]);
 
 export const router = createRouter({ routeTree });
 
