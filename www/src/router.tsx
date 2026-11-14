@@ -29,7 +29,7 @@ function Nav() {
     <header className="border-b bg-background">
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
         <Link to="/" className="text-sm font-semibold">
-          lofipix
+          LoFi Pix
         </Link>
         <nav className="flex items-center gap-3">
           {session?.user ? (
