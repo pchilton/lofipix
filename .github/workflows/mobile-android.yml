@@ -35,6 +35,11 @@ jobs:
           cd mobile
           npm install
 
+      - name: Update codeVersion
+        run: |
+          cd mobile
+          npm run bump-version
+
       - name: Decode Keystore
         run: |
           cd mobile/android/app
