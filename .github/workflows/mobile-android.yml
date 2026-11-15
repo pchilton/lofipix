@@ -61,7 +61,6 @@ jobs:
           echo "Size: $SIZE bytes ($(numfmt --to=iec --suffix=B "$SIZE"))"
           echo "Built: $BUILT"
           echo "SHA-256: $SHA256"
-          cat output-metadata.json
 
       - name: Upload to Google Play (internal track)
         uses: r0adkll/upload-google-play@v1
