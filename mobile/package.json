@@ -8,7 +8,7 @@
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "icons:generate": "tsx scripts/generate-icons.ts",
-    "bump-version": "node scripts/bump-version.ts",
+    "bump-version": "node scripts/bump-version.js",
     "start": "react-native start",
     "test": "jest",
     "typecheck": "tsc --noEmit"
