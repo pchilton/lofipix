@@ -30,7 +30,7 @@ class SceneDelegate: RCTDefaultReactNativeFactoryDelegate, UIWindowSceneDelegate
     #endif
     
     reactNativeFactory?.startReactNative(
-      withModuleName: "mobile",
+      withModuleName: "lofipix",
       in: window,
       connectionOptions: connectionOptions
     )
