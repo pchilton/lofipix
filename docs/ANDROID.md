@@ -92,12 +92,6 @@ Run on Android (requires an emulator running or a device connected with USB debu
 npm run android
 ```
 
-Run on iOS (macOS only, requires Xcode):
-
-```bash
-npm run ios
-```
-
 ## Testing on a physical Android device
 
 ### 1. Enable Developer options on the phone
