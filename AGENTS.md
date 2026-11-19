@@ -12,6 +12,7 @@ compression), architecture diagram, directory table, and stack — read it first
 consult it during tasks, do not duplicate it in prompts.
 
 - **Web app** — React + TanStack Router (React), static export, no sync engine, ShadCN + Tailwind, Bun (`www/`)
+- **PWA** — React + Vite static SPA, installable via `vite-plugin-pwa`, ShadCN + Tailwind from `@lofipix/ui`, Bun (`pwa/`); PowerSync web and OPFS photo storage are follow-up prompts
 - **Mobile** — bare React Native + React Navigation, offline-first via embedded SQLite (`@op-engineering/op-sqlite`) managed by PowerSync + TanStack DB collections, and the app documents directory for photo bytes, Node.js/npm via ASDF (`mobile/`)
 - **Central API** — Hono + Bun + Drizzle ORM, source of truth (`api/`)
 - **Database** — PostgreSQL: Better Auth tables in the `auth` schema (synced by Better Auth, see `docs/AUTHENTICATION.md`); application tables in `public` (Drizzle schema + `drizzle-kit push`, `packages/db`)
@@ -29,6 +30,7 @@ Read the relevant file when a task touches its area:
 - `docs/ARCHITECTURE.md` — target technology stacks for `www/`, `mobile/`, `api/`, shared models, frontend conventions, communication channels.
 - `docs/WEBSITE.md` — website storyboard: pages, contents, user journey (marketing → dashboard → account/billing).
 - `docs/MOBILE.md` — mobile storyboard: offline capture loop (dashboard → create → capture → finish → submit), SQLite cache and native modules.
+- `docs/PWA.md` — browser PWA: static SPA build, service worker and manifest, build-time environment, Chrome insecure-origin development, camera limits, sync/OPFS roadmap.
 - `docs/POWERSYNC.md` — self-hosted PowerSync: service install, Sync Streams, JWT auth, upload/rebase contract and operations.
 - `docs/AUTHENTICATION.md` — Better Auth setup: config (`packages/db/auth.ts`), `auth`-schema tables per plugin, the two-step sync process, and `packages/db/external` proxies (types + foreign-key targets).
 - `docs/STORAGE.md` — SeaweedFS setup, buckets, auth, systemd service.
@@ -56,6 +58,7 @@ Read the relevant file when a task touches its area:
 - The root workspace apps and packages use Bun for scripts and package management; `mobile/` uses npm through Node.js selected by ASDF. `www/` and `api/` use HMR. API database access uses Drizzle with `DATABASE_URL`.
 - Shared types and Zod schemas go in `models/` and are imported by API and clients — do not re-define them locally. Database models (Drizzle tables + their Zod schemas) live in `packages/db/models/`.
 - Website code is React + TanStack Router/Query/Form with ShadCN; mobile code is React Native + React Navigation with PowerSync-managed SQLite + TanStack DB.
+- PWA code is the web stack in `pwa/`: React + Vite static SPA, TanStack Router/Query/Form, ShadCN from `@lofipix/ui` and `vite-plugin-pwa`. It is not the website and not the native app. Use build-time Vite modes (`pwa/.env.development`, `pwa/.env.production`) for public endpoint URLs; do not add a server runtime or SSR. The planned data path is `@powersync/web` (WA-SQLite/OPFS) + TanStack DB, with photo bytes in OPFS.
 - Record ids are UUIDv7 generated with `uuidv7()` from the `uuid` package, not `Bun.randomUUIDv7()`: the mobile app is native and must mint ids offline.
 - API endpoints validate input with Zod schemas from `models/`.
 - Shared web UI components (ShadCN: Radix + Tailwind) live in `packages/ui` (`@lofipix/ui`) as copied-in source, each with a colocated `*.stories.tsx`. Follow `docs/SHADCN.md`. Never run the ShadCN CLI inside a workspace package directory: it can write an `npm` lockfile there. Generate outside the workspace and copy source in. Storybook and component tests run from `packages/ui` (`bun run storybook`, `bun run test`).

@@ -55,7 +55,7 @@ for capturing panel damage photos, with cloud albums and organisation sharing.
 - Hero: value proposition + CTA (Sign in / Register).
 - **Get the app**: the native iOS/Android app has its own login screen. Store
   links are added when the app is published; the website does not link to the
-  retired PWA.
+  browser PWA yet (a future task adds the upgrade path).
 - Feature strip: offline-first capture, cloud albums, organisation sharing.
 - No pricing/billing marketing until Billing is implemented.
 

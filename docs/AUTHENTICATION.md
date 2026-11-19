@@ -32,8 +32,9 @@ website and API share the session. In production
 the session available across all `*.lofipix.app` subdomains. Bearer sessions do
 not use cookies.
 
-The retired PWA origins have been removed; only the website, preview and native
-scheme are trusted.
+The PWA origins are not trusted yet; prompt 0029 adds them when PWA
+authentication lands. Until then only the website, preview and native scheme are
+trusted.
 
 ## Plugins and tables
 

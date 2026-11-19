@@ -25,8 +25,10 @@ by `cloudflare/wrangler-action`. Client-side routes must fall back to
 - `deploy-www.yml` runs `wrangler deploy`, which reads that config (name, asset
   directory, fallback).
 
-The PWA and its former Cloudflare deployment have been removed; the native app
-does not use a web domain.
+The PWA is being reintroduced in `pwa/` as a separate static SPA. Its intended
+production origin is `https://pwa.lofipix.app`; the Cloudflare deployment and
+SPA fallback are a future task. See `docs/PWA.md`. The native app does not use a
+web domain.
 
 ## Authentication
 
@@ -36,6 +38,7 @@ Authentication uses "Better Auth". The website uses HTTP-only cookie sessions is
 
 - `lofipix.app` - Redirect to www (Cloudflare Worker)
 - `www.lofipix.app` - Web App (Cloudflare Workers)
+- `pwa.lofipix.app` - PWA (planned Cloudflare static assets)
 - `edge.lofipix.app` - Edge functions (Cloudflare Worker)
 
 ## Production VPS
@@ -202,6 +205,7 @@ Locations to services by locally running processes, with HMR
 - `192.168.1.15:8333/storage-cholet-lofipix/` - SeaweedFS S3 API, using path-based bucket routing
 - `192.168.1.15:5634/api/` - API queries via Hono and HMR
 - `192.168.1.15:5173/` - WWW on local port and HMR
+- `192.168.1.15:5174/` - PWA on local port and HMR (Android Chrome needs the insecure-origin flag; see `docs/PWA.md`)
 - `192.168.1.15:5677/` - PowerSync Service on local port
 - Mobile: native development build connecting to `http://192.168.1.15:5634/` (Android emulators may use `10.0.2.2`)
 
@@ -209,4 +213,5 @@ Development commands (per app, with `REGION=cholet`):
 
 - API: `REGION=cholet bun run --hot src/index.ts` (from `api/`)
 - WWW: `REGION=cholet bun run dev` (from `www/`)
+- PWA: `bun run dev` (from `pwa/`)
 - Mobile: `npm run android` or `npm run ios` from `mobile/`

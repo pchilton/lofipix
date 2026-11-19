@@ -1,6 +1,6 @@
 # Mobile app (`mobile/`) — Storyboard
 
-Offline-first capture app for iOS and Android. It talks directly to the API. There is no PWA build. The app is being rebuilt in small, verifiable increments from a fresh bare React Native CLI app. Each increment must continue to build and run on a connected Android device before the next screen or feature is added. The previous implementation is retained in `reference.mobile/` for reference only; it is not the active app or a source of buildable code.
+Offline-first capture app for iOS and Android. It talks directly to the API. A separate browser PWA lives in `pwa/` (see `docs/PWA.md`); this document covers the native app only. The app is being rebuilt in small, verifiable increments from a fresh bare React Native CLI app. Each increment must continue to build and run on a connected Android device before the next screen or feature is added. The previous implementation is retained in `reference.mobile/` for reference only; it is not the active app or a source of buildable code.
 
 Stack: bare React Native CLI (no Expo runtime), React Navigation native-stack,
 embedded SQLite managed by PowerSync, Better Auth.
@@ -227,7 +227,8 @@ builds, so do not put credentials or private keys in them.
   `https://oceania.lofipix.app/powersync/`.
 
 For iOS, run `pod install` from `mobile/ios/` after adding or updating native
-packages. The native app has no web build and does not use a PWA domain.
+packages. The native app has no web build; the browser PWA in `pwa/` is a
+separate client.
 
 ## Icons and UI
 

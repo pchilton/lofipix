@@ -1,8 +1,9 @@
 # Technology stacks
 
-Target stack for `www/`, `mobile/`, and `api/`. The website is React; the mobile
-app is bare React Native. The central API in `api/` backed by PostgreSQL is the
-source of truth; the mobile client is local-first and offline-capable.
+Target stack for `www/`, `pwa/`, `mobile/`, and `api/`. The website is React; the
+PWA is a React static SPA; the mobile app is bare React Native. The central API
+in `api/` backed by PostgreSQL is the source of truth; the PWA and mobile client
+are local-first and offline-capable.
 
 ## Website (`/www`)
 
@@ -22,10 +23,32 @@ A plain static site: no service worker, no sync engine, no local persistence.
 - Testing: Vitest + Playwright.
 - Local Data Storage: None. Interacts with the API for all persistence.
 
+## PWA (`/pwa`)
+
+Installable browser capture app for users who cannot use the native store builds.
+The PWA is being rebuilt in increments after the React migration: prompt 0028
+delivers the shell and PWA support, 0029 adds auth and sync, and 0030 adds
+camera capture and OPFS photo bytes. See `docs/PWA.md`.
+
+- UI Framework & Build Tools: React 19 + Vite static SPA, TypeScript, Bun in the root workspace. No SSR and no server runtime.
+- PWA Support: `vite-plugin-pwa` with a Workbox-generated service worker, web manifest, generated icons and an in-app update prompt.
+- Routing: TanStack Router (React).
+- Design System: ShadCN components (Radix primitives + Tailwind CSS v4) copied into `packages/ui` (`@lofipix/ui`). Icons use `unplugin-icons`, as on the website.
+- Data Fetching: TanStack Query (React) for non-synced API state, with typed API modules and no direct `fetch()` calls in components.
+- Forms: TanStack Form (React) + Zod.
+- Environment: build-time Vite modes (`pwa/.env.development`, `pwa/.env.production`) exposing public endpoint URLs only.
+- Local Database and Sync (planned, 0029): `@powersync/web` with its WA-SQLite/OPFS adapter, TanStack DB collections, the same JWT/token and upload/rebase contract as mobile. Authentication will use Better Auth cookie sessions, like the website.
+- Photo Bytes (planned, 0030): the browser origin-private filesystem (OPFS) at `photos/{photoId}.jpg`, with the `opfs` storage provider and `config.platform: "web"`.
+- Camera: browser `getUserMedia` with an `<input capture>` fallback; browser limits are documented in `docs/PWA.md`.
+- Async UX: Every async operation has explicit loading, error, success, and offline states.
+- Testing: Vitest for web units; Playwright can drive the built PWA.
+- Deployment: static build for the planned `https://pwa.lofipix.app` Cloudflare target.
+
 ## Mobile Stack (`/mobile`)
 
-Local-first, offline-first native app for capturing photos. Replaces the former
-SolidJS PWA; there is no web build.
+Local-first, offline-first native app for capturing photos. It replaces the
+former SolidJS PWA; the browser PWA is now a separate client in `pwa/`, and the
+native app itself has no web build.
 
 - UI Framework & Build Tools: bare React Native CLI (no Expo runtime), TypeScript, Bun for workspace scripts and package management. Generated `android/` and `ios/` projects are committed.
 - Routing: React Navigation native-stack with typed route params and auth-gated screen groups.
@@ -68,13 +91,14 @@ filters client sync windows, hosts the application gateway, and issues storage c
 - Strict Types: TypeScript strict; no `any` in domain models.
 - Soft Deletes: Tombstone columns (e.g. `deleted_at` / `is_deleted`) on synced tables.
 
-## Frontend conventions (www/ + mobile/)
+## Frontend conventions (www/ + pwa/ + mobile/)
 
-- Declarative React components only on the website; React Native components on mobile. No SolidJS.
+- Declarative React components only on the website and PWA; React Native components on mobile. No SolidJS.
 - No direct `fetch()` calls in components; use typed API modules.
 - TanStack Query for server state (auth, uploads, non-synced API state) with automatic retry.
 - TanStack Form + Zod for forms.
 - Website: TanStack Router, ShadCN + Tailwind, React state for ephemeral UI state.
+- PWA: TanStack Router, ShadCN + Tailwind, `vite-plugin-pwa`; planned TanStack DB collections over PowerSync web for synced reads.
 - Mobile: React Navigation, StyleSheet tokens, React state for ephemeral UI state; synced reads come from TanStack DB collections over PowerSync SQLite.
 - Every async operation surfaces loading, error, success, and offline states.
 
