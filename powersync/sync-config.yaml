@@ -31,6 +31,7 @@ streams:
   storage_providers:
     auto_subscribe: true
     query: >
-      SELECT storage_providers.*
+      SELECT id, organization_id, provider_type, label, external_id, config,
+             version, originated_at, created_at, updated_at, deleted_at
       FROM storage_providers
       WHERE organization_id = auth.parameter('organization_id')

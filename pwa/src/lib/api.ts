@@ -10,8 +10,12 @@ export class ApiError extends Error {
   }
 }
 
+export function resolveApiUrl(path: string): URL {
+  return new URL(path.replace(/^\//, ""), pwaEnvironment.API_URL);
+}
+
 export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  const url = new URL(path.replace(/^\//, ""), pwaEnvironment.API_URL);
+  const url = resolveApiUrl(path);
   const response = await fetch(url, {
     credentials: "include",
     ...init,

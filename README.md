@@ -11,7 +11,7 @@ These can then be attached to emails, where 10-20 photos will fit under 10MB.
 
 There is a public website detailing what LoFi Pix is, and administer organisations, users, albums and photos.
 The primary way of capturing photos is an offline-first, local-first native app for iOS and Android.
-An installable browser PWA reuses the offline capture loop for users without app-store access; it is being reintroduced in small prompts after the React migration.
+An installable browser PWA reuses the offline capture loop for users without app-store access. The rebuilt PWA has cookie sign-in and PowerSync sync; camera capture is the remaining follow-up.
 
 ## General mobile app behaviour
 
@@ -52,7 +52,7 @@ graph TD
     %% Client Tier
     subgraph ClientInterfaces [Client Interfaces]
         Web[Website<br>React / Static Export<br>No local storage]
-        Pwa[PWA<br>React / Static SPA<br>PowerSync web + OPFS planned]
+        Pwa[PWA<br>React / Static SPA<br>PowerSync web + TanStack DB<br>OPFS photos planned]
         Mobile[Mobile App<br>React Native / Offline-first<br>SQLite + PowerSync + device files]
     end
 
@@ -114,7 +114,7 @@ graph TD
 | `docs/` | Architecture and operations documentation | Markdown (see `ARCHITECTURE.md`, `AUTHENTICATION.md`, `POWERSYNC.md`, `MOBILE.md`, `PWA.md`, `PHOTOS.md`, `PHOTO_LOCATIONS.md`, `SHADCN.md`, `ICONS.md`, `UPTRACE.md`) |
 | `mobile/` | Native iOS/Android app, offline-first, device-only photo bytes | React Native (bare CLI) + React Navigation + SQLite (op-sqlite) + PowerSync + TanStack DB + TanStack Form + Jest + Maestro, Node.js via ASDF + npm |
 | `powersync/` | Self-hosted PowerSync service config, sync streams, Dockerfile and systemd unit | PowerSync Service (Docker, host network) + PostgreSQL + systemd |
-| `pwa/` | Installable offline-first capture PWA (shell; sync and camera follow-ups) | React + Vite static SPA + vite-plugin-pwa + TanStack Router/Query/Form + ShadCN (`@lofipix/ui`), Bun |
+| `pwa/` | Installable offline-first PWA (auth + sync; camera follow-up) | React + Vite static SPA + vite-plugin-pwa + TanStack Router/Query/Form + TanStack DB + PowerSync web + Better Auth + ShadCN (`@lofipix/ui`), Bun |
 | `scripts/` | Operational scripts (incl. database reset and demo seeding) | TypeScript + Bun (workspace package) |
 | `workers/` | CloudFlare Workers | JavaScript |
 | `www/` | Website (plain static site, no sync) | React + TanStack Router (React) + TanStack Query + TanStack Form + ShadCN (`@lofipix/ui`) + Vite, static export, Bun |
@@ -123,10 +123,10 @@ graph TD
 
 - **Website**: React + TanStack Router (React) + TanStack Query (data fetching + caching with automatic retry) + TanStack Form + Zod, ShadCN + Tailwind CSS v4 from `@lofipix/ui`, static export
 - **Mobile**: bare React Native + React Navigation native-stack, embedded SQLite (`@op-engineering/op-sqlite` via PowerSync), PowerSync sync streams, TanStack DB collections, React state/context + StyleSheet design tokens
-- **PWA**: React 19 + Vite static SPA, TanStack Router/Query/Form, ShadCN + Tailwind CSS v4 from `@lofipix/ui`, `vite-plugin-pwa`; PowerSync web (WA-SQLite/OPFS) and OPFS photo storage are planned in follow-up prompts
+- **PWA**: React 19 + Vite static SPA, TanStack Router/Query/Form, ShadCN + Tailwind CSS v4 from `@lofipix/ui`, `vite-plugin-pwa`, Better Auth cookie sessions, PowerSync web (WA-SQLite/OPFS) + TanStack DB; OPFS photo storage is the remaining follow-up
 - **Mobile auth**: Better Auth bearer tokens stored in `react-native-keychain`; website keeps Better Auth cookie sessions
 - **Mobile client storage**: SQLite for relational data, app documents directory for photo bytes
-- **Sync**: self-hosted PowerSync with JWT scoping, version-checked uploads and client auto-rebase; PowerSync owns the mobile SQLite cache
+- **Sync**: self-hosted PowerSync with JWT scoping, version-checked uploads and client auto-rebase; PowerSync owns the mobile SQLite and PWA WA-SQLite caches
 - **Backend**: Bun, Hono (central API, source of truth), Drizzle ORM, PostgreSQL (source of truth), PowerSync, pgmq for background jobs
 - **Authorization**: via the Better Auth organisation plugin (see `docs/AUTHENTICATION.md`)
 - **Package manager**: Bun for repository workspaces (`bun.lock`); `mobile/` uses npm (`mobile/package-lock.json`) with Node.js pinned by ASDF in `mobile/.tool-versions`

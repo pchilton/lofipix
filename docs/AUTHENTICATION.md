@@ -8,8 +8,8 @@ PostgreSQL `auth` schema, isolated from application tables in `public`.
 `packages/db/auth.ts` is the single Better Auth config, imported by both the
 API and `scripts/reset-database.ts` so both use the same plugin list.
 
-- Methods: email+password; cookie sessions for the website; bearer tokens for
-  the native mobile app.
+- Methods: email+password; cookie sessions for the website and PWA; bearer
+  tokens for the native mobile app.
 - Database: Kysely `PostgresDialect` over `DATABASE_URL`, with
   `schemaName: 'auth'` so every Better Auth table is created in the `auth`
   schema. Plugins are configured in the same file (organisation, bearer,
@@ -20,21 +20,24 @@ API and `scripts/reset-database.ts` so both use the same plugin list.
 `api/src/index.ts` mounts `auth.handler` at `/api/auth/*` for GET and POST and
 applies CORS with credential support. Allowed origins are listed both in the
 Hono CORS allowlist and in Better Auth's `trustedOrigins`
-(`packages/db/auth.ts`): `192.168.1.15` on port 5173 for development (localhost
-is intentionally unsupported), `https://www.lofipix.app`, and the native app
-scheme `lofipix://`. The native app has no browser origin; its API calls send an
+(`packages/db/auth.ts`): `192.168.1.15` on ports 5173/4173 for the website and
+5174/4174 for the PWA in development (localhost is intentionally unsupported),
+`https://www.lofipix.app`, `https://pwa.lofipix.app`, and the native app scheme
+`lofipix://`. The native app has no browser origin; its API calls send an
 `Authorization: Bearer` header instead of relying on CORS. Add any new browser
 origin in both places.
 
 Session cookies are host-only in development, scoped to `192.168.1.15`, so the
-website and API share the session. In production
+website, PWA and API share the session. In production
 (`advanced.crossSubDomainCookies`) they are issued for `.lofipix.app`, making
-the session available across all `*.lofipix.app` subdomains. Bearer sessions do
-not use cookies.
+the session available on `www.lofipix.app` and `pwa.lofipix.app`. Bearer
+sessions do not use cookies.
 
-The PWA origins are not trusted yet; prompt 0029 adds them when PWA
-authentication lands. Until then only the website, preview and native scheme are
-trusted.
+The PWA stores only a non-secret profile (user id, name, email, active
+organisation id) in `localStorage` so it can open offline after a previous
+sign-in. It never stores the session cookie value or a bearer token. A later
+`401`/`403` marks the local profile stale and asks for re-login; local data is
+not deleted.
 
 ## Plugins and tables
 
@@ -71,7 +74,7 @@ The `jwt()` plugin signs EdDSA/Ed25519 tokens with `audience: lofipix` and a
 one active organisation, and calls `auth.api.signJWT` with:
 
 ```json
-{ "sub": "<user id>", "organization_id": "<active organisation id>" }
+{ "sub": "<user id>", "organization_id": "<active organisation id>", "iat": "<issued-at seconds>" }
 ```
 
 PowerSync verifies the token against `http://127.0.0.1:5634/api/auth/jwks`

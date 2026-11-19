@@ -37,7 +37,10 @@ export const auth = betterAuth({
   trustedOrigins: [
     'http://192.168.1.15:5173',
     'http://192.168.1.15:4173',
+    'http://192.168.1.15:5174',
+    'http://192.168.1.15:4174',
     'https://www.lofipix.app',
+    'https://pwa.lofipix.app',
     'lofipix://',
   ],
   advanced: isProduction

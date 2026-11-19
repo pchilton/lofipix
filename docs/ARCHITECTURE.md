@@ -26,9 +26,9 @@ A plain static site: no service worker, no sync engine, no local persistence.
 ## PWA (`/pwa`)
 
 Installable browser capture app for users who cannot use the native store builds.
-The PWA is being rebuilt in increments after the React migration: prompt 0028
-delivers the shell and PWA support, 0029 adds auth and sync, and 0030 adds
-camera capture and OPFS photo bytes. See `docs/PWA.md`.
+The PWA was rebuilt in increments after the React migration: prompt 0028
+delivered the shell and PWA support, 0029 added cookie auth and PowerSync web
+sync, and 0030 adds camera capture and OPFS photo bytes. See `docs/PWA.md`.
 
 - UI Framework & Build Tools: React 19 + Vite static SPA, TypeScript, Bun in the root workspace. No SSR and no server runtime.
 - PWA Support: `vite-plugin-pwa` with a Workbox-generated service worker, web manifest, generated icons and an in-app update prompt.
@@ -37,7 +37,8 @@ camera capture and OPFS photo bytes. See `docs/PWA.md`.
 - Data Fetching: TanStack Query (React) for non-synced API state, with typed API modules and no direct `fetch()` calls in components.
 - Forms: TanStack Form (React) + Zod.
 - Environment: build-time Vite modes (`pwa/.env.development`, `pwa/.env.production`) exposing public endpoint URLs only.
-- Local Database and Sync (planned, 0029): `@powersync/web` with its WA-SQLite/OPFS adapter, TanStack DB collections, the same JWT/token and upload/rebase contract as mobile. Authentication will use Better Auth cookie sessions, like the website.
+- Authentication: Better Auth cookie sessions, like the website. A non-secret profile in `localStorage` allows an offline launch; a `401`/`403` marks it stale and prompts re-login.
+- Local Database and Sync: `@powersync/web` with WA-SQLite (OPFS when available), TanStack DB collections, the same `/api/sync/token` and upload/rebase contract as mobile. The connector authenticates with cookies and strips the trailing slash from the PowerSync endpoint.
 - Photo Bytes (planned, 0030): the browser origin-private filesystem (OPFS) at `photos/{photoId}.jpg`, with the `opfs` storage provider and `config.platform: "web"`.
 - Camera: browser `getUserMedia` with an `<input capture>` fallback; browser limits are documented in `docs/PWA.md`.
 - Async UX: Every async operation has explicit loading, error, success, and offline states.
@@ -98,7 +99,7 @@ filters client sync windows, hosts the application gateway, and issues storage c
 - TanStack Query for server state (auth, uploads, non-synced API state) with automatic retry.
 - TanStack Form + Zod for forms.
 - Website: TanStack Router, ShadCN + Tailwind, React state for ephemeral UI state.
-- PWA: TanStack Router, ShadCN + Tailwind, `vite-plugin-pwa`; planned TanStack DB collections over PowerSync web for synced reads.
+- PWA: TanStack Router, ShadCN + Tailwind, `vite-plugin-pwa`, TanStack DB collections over PowerSync web for synced reads, Better Auth cookie sessions.
 - Mobile: React Navigation, StyleSheet tokens, React state for ephemeral UI state; synced reads come from TanStack DB collections over PowerSync SQLite.
 - Every async operation surfaces loading, error, success, and offline states.
 

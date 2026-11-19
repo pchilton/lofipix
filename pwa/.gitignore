@@ -1,3 +1,6 @@
 # Keep environment build files
 !.env.development
 !.env.production
+
+# Generated PowerSync worker assets
+public/@powersync/

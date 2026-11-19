@@ -5,6 +5,11 @@ import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 import { iconsPlugin } from "@lofipix/ui/icons/vite";
 
+const isolationHeaders = {
+  "Cross-Origin-Opener-Policy": "same-origin",
+  "Cross-Origin-Embedder-Policy": "require-corp",
+};
+
 export default defineConfig({
   plugins: [
     tailwindcss(),
@@ -42,9 +47,11 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,svg,ico,woff2}"],
+        globPatterns: ["**/*.{js,css,html,svg,ico,woff2,wasm}"],
+        globIgnores: ["**/@powersync/**"],
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api\//, /^\/powersync\//],
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
       devOptions: {
         enabled: false,
@@ -56,14 +63,26 @@ export default defineConfig({
       "@": fileURLToPath(new URL("../packages/ui/src", import.meta.url)),
     },
   },
+  optimizeDeps: {
+    exclude: ["@powersync/web"],
+  },
+  worker: {
+    format: "es",
+  },
   server: {
     host: "0.0.0.0",
     port: 5174,
+    headers: isolationHeaders,
     watch: {
       usePolling: true,
     },
     hmr: {
       clientPort: 5174,
     },
+  },
+  preview: {
+    host: "0.0.0.0",
+    port: 4174,
+    headers: isolationHeaders,
   },
 });

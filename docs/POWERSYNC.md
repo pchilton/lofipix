@@ -1,10 +1,10 @@
 # PowerSync
 
-PowerSync is the sync engine for the mobile app. PostgreSQL remains the source
-of truth. A self-hosted PowerSync Service, run from the upstream official Docker
-image, replicates the four application tables to PowerSync SQLite on the
-device. The app reads and writes through TanStack DB collections over that
-database.
+PowerSync is the sync engine for the mobile app and the PWA. PostgreSQL remains
+the source of truth. A self-hosted PowerSync Service, run from the upstream
+official Docker image, replicates the four application tables to PowerSync
+SQLite on the device. Both clients read and write through TanStack DB
+collections over that database.
 
 ```text
 PostgreSQL ──logical replication──► PowerSync Service (loopback :5677)
@@ -13,6 +13,9 @@ PostgreSQL ──logical replication──► PowerSync Service (loopback :5677)
 Mobile ──JWT──► https://<region>.lofipix.app/powersync/
 Mobile ──Bearer──► API /api/sync/token   (mints the PowerSync JWT)
 Mobile ──Bearer──► API /api/sync/upload  (PowerSync upload queue)
+PWA ──JWT──► https://<region>.lofipix.app/powersync/
+PWA ──Cookie──► API /api/sync/token      (same token endpoint)
+PWA ──Cookie──► API /api/sync/upload     (PowerSync upload queue)
 ```
 
 The website does not use PowerSync or local persistence.
@@ -32,20 +35,27 @@ The website does not use PowerSync or local persistence.
 `auto_subscribe: true` for every stream. The `organization_id` value comes from
 `auth.parameter('organization_id')`, which PowerSync reads from the JWT.
 
+`storage_providers` selects explicit columns rather than `*`, excluding
+`encrypted_data`. That column stays server-side; it must never reach the mobile
+or browser database.
+
 ## Authentication
 
-1. The mobile app stores a Better Auth bearer token.
+1. The mobile app stores a Better Auth bearer token. The PWA uses the Better
+   Auth cookie session instead; both transports are accepted by the API.
 2. `POST /api/sync/token` resolves the session, requires exactly one active
    organisation and calls the Better Auth JWT signer.
 3. The token has `sub`, `aud: lofipix`, `iat`/`exp` (5 minutes) and
-   `organization_id`.
+   `organization_id`. PowerSync rejects tokens missing `iat`, so the API adds it
+   explicitly.
 4. PowerSync verifies the token against the Better Auth JWKS at
    `http://127.0.0.1:5634/api/auth/jwks` with `client_auth.audience:
    [lofipix]`.
 
 A user with no active organisation, or with more than one, receives `403`; no
-unscoped token is ever issued. The mobile connector calls the token endpoint
-again whenever PowerSync refreshes credentials.
+unscoped token is ever issued. Both connectors call the token endpoint again whenever PowerSync refreshes
+credentials. The PWA connector strips the trailing slash from the configured
+PowerSync endpoint because the service rejects an endpoint ending in `/`.
 
 The `jwks` table is created in the `auth` schema by the Better Auth JWT plugin.
 `scripts/reset-database.ts` expects it.
@@ -81,14 +91,16 @@ each entry in its own transaction:
 - `photos` and `photo_locations` are checked through their parent album;
   `photo_locations` also checks the storage provider's organisation.
 - `storage_providers.encrypted_data` is accepted on uploads and preserved as-is
-  (it is encrypted at rest; the API never decrypts it during sync).
+  (it is encrypted at rest; the API never decrypts it during sync). It is never
+  selected by the sync streams, so it is not present in either client's local
+  database.
 
 Results are `applied`, `conflict`, `rejected` or `already-applied`.
 
 ### Conflicts
 
-A stale `baseVersion` returns `409` with the current row and version. The mobile
-connector:
+A stale `baseVersion` returns `409` with the current row and version. Both the
+mobile and PWA connectors:
 
 1. writes the server row locally,
 2. re-applies the pending changed columns with the new version,

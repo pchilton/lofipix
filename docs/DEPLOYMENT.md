@@ -25,10 +25,11 @@ by `cloudflare/wrangler-action`. Client-side routes must fall back to
 - `deploy-www.yml` runs `wrangler deploy`, which reads that config (name, asset
   directory, fallback).
 
-The PWA is being reintroduced in `pwa/` as a separate static SPA. Its intended
-production origin is `https://pwa.lofipix.app`; the Cloudflare deployment and
-SPA fallback are a future task. See `docs/PWA.md`. The native app does not use a
-web domain.
+The PWA is a separate static SPA in `pwa/`. Its intended production origin is
+`https://pwa.lofipix.app`; the Cloudflare deployment is a future task. It needs
+the SPA fallback and the COOP/COEP headers in `pwa/public/_headers` for
+PowerSync web and OPFS. See `docs/PWA.md`. The native app does not use a web
+domain.
 
 ## Authentication
 

@@ -4,17 +4,24 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "bunx vite --host 0.0.0.0 --port 5174",
-    "build": "bunx vite build",
+    "dev": "bun run powersync:assets && bunx vite --host 0.0.0.0 --port 5174",
+    "build": "bun run powersync:assets && bunx vite build",
     "preview": "bunx vite preview --host 0.0.0.0 --port 4174",
     "typecheck": "bunx tsc --noEmit",
-    "icons:generate": "pwa-assets-generator"
+    "test": "vitest run",
+    "icons:generate": "pwa-assets-generator",
+    "powersync:assets": "powersync-web copy-assets"
   },
   "dependencies": {
+    "@lofipix/db": "workspace:*",
     "@lofipix/ui": "workspace:*",
+    "@powersync/web": "^2.7.0",
+    "@tanstack/powersync-db-collection": "1.0.0-rc.1.5",
+    "@tanstack/react-db": "1.0.0-rc.1.5",
     "@tanstack/react-form": "^1.33.5",
     "@tanstack/react-query": "^5.105.3",
     "@tanstack/react-router": "^1.170.46",
+    "better-auth": "1.7.11",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "zod": "^4.6.7"
@@ -30,6 +37,7 @@
     "typescript": "^7.0.2",
     "vite": "^8.2.2",
     "vite-plugin-pwa": "^2.0.0",
+    "vitest": "^5.0.5",
     "workbox-window": "^7.4.1"
   }
 }

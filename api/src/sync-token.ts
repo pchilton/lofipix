@@ -9,6 +9,7 @@ export async function issueSyncToken(
       payload: {
         sub: userId,
         organization_id: organizationId,
+        iat: Math.floor(Date.now() / 1000),
       },
     },
   });
