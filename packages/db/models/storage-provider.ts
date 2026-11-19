@@ -45,13 +45,25 @@ export const storageProviders = pgTable(
   ],
 );
 
+const devicePlatformValues = ['ios', 'android', 'web'] as const;
+const devicePlatformSchema = z.enum(devicePlatformValues);
+
 const storageProviderRefinements = {
   label: (schema: z.ZodString) => schema.min(1),
   externalId: (schema: z.ZodString) => schema.min(1),
   providerType: (schema: typeof providerTypeSchema) => schema,
+  config: (schema: z.ZodType<unknown>) =>
+    schema.refine(
+      (value) => {
+        if (!value || typeof value !== 'object') {
+          return true;
+        }
+        const platform = (value as Record<string, unknown>).platform;
+        return platform === undefined || devicePlatformSchema.safeParse(platform).success;
+      },
+      { message: 'Device storage providers require platform ios, android or web.' },
+    ),
 };
-
-const devicePlatformValues = ['ios', 'android', 'web'] as const;
 
 function devicePlatformIsValid(row: { providerType?: unknown; config?: unknown }): boolean {
   if (row.providerType !== 'opfs' && row.providerType !== 'app_fs') {
@@ -78,10 +90,7 @@ export const storageProviderSelectSchema = createSelectSchema(
 export const storageProviderInsertSchema = createInsertSchema(
   storageProviders,
   storageProviderRefinements,
-).refine(devicePlatformIsValid, {
-  path: ['config', 'platform'],
-  message: 'Device storage providers require platform ios, android or web.',
-});
+);
 
 export type StorageProvider = z.infer<typeof storageProviderSelectSchema>;
 export type NewStorageProvider = z.infer<typeof storageProviderInsertSchema>;
