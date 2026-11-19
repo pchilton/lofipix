@@ -99,14 +99,18 @@ Results are `applied`, `conflict`, `rejected` or `already-applied`.
 
 ### Conflicts
 
-A stale `baseVersion` returns `409` with the current row and version. Both the
-mobile and PWA connectors:
+A stale `baseVersion` returns `409` with the current row and version. Both
+client connectors:
 
-1. writes the server row locally,
-2. re-applies the pending changed columns with the new version,
-3. lets PowerSync enqueue a fresh upload.
+1. record the server version for the conflicted row,
+2. retry the same pending operation with that server version as `baseVersion`,
+3. let the downloaded server row update the local version.
 
-Rebase is silent. Only a failure to rebase surfaces the generic sync error.
+The PWA also enables `trackPrevious: { columns: ["version"] }` on every synced
+table, so a delete can supply the version it is deleting, and processes the
+upload queue one entry at a time so multiple pending edits to the same row
+cannot conflict with each other. Rebase is silent. Only exhausting the retry
+limit surfaces the generic sync error.
 
 ### Idempotency
 

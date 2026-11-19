@@ -5,16 +5,15 @@ who cannot install the native app (for example because they do not have access
 to a store build) can still run the offline capture loop from a browser. It is
 installable from the browser and uses the browser's own storage and camera APIs.
 
-This document covers the shell from prompt 0028 and the authenticated sync
-layer from prompt 0029. Camera capture, OPFS photo bytes and the capture-loop
-screens are delivered by prompt 0030; see Roadmap.
+This document covers the shell (prompt 0028), authenticated PowerSync sync
+(prompt 0029) and the offline capture loop with OPFS photo bytes (prompt 0030).
 
 ## Relationship to the other clients
 
 | Client | Purpose | Stack |
 | --- | --- | --- |
 | `www/` | Public website, organisation administration and billing | React static site, cookie sessions, no local persistence |
-| `pwa/` | Installable offline-first capture app in the browser | React static SPA + `vite-plugin-pwa`, Better Auth cookie sessions, PowerSync web + TanStack DB; OPFS photo bytes are planned |
+| `pwa/` | Installable offline-first capture app in the browser | React static SPA + `vite-plugin-pwa`, Better Auth cookie sessions, PowerSync web + TanStack DB, OPFS photo bytes |
 | `mobile/` | Native iOS/Android capture app | bare React Native, PowerSync native SQLite, app documents storage |
 
 `pwa/` is not a second website. `www/` remains the place for marketing,
@@ -42,11 +41,14 @@ camera and storage behaviour.
 pwa/
 ├── public/                 # icon source, generated PWA icons, static assets
 ├── src/
-│   ├── components/         # shell, sync badge and session gate
+│   ├── components/         # shell, sync badge, session gate, capture form
+│   │   └── photos/         # create-album form and photo thumbnail
 │   ├── config/             # typed environment configuration
 │   ├── lib/                # auth, session, API and PowerSync modules
-│   │   └── db/             # schema, collections, connector, sync state
-│   ├── routes/             # Welcome, Dashboard and Settings routes
+│   │   ├── db/             # schema, collections, connector, sync state
+│   │   └── photos/         # camera, compression, hashing, OPFS and mutations
+│   ├── routes/             # Welcome, Dashboard, Settings
+│   │   └── albums/         # create, capture, finish and photo review
 │   ├── index.css           # Tailwind + shared @lofipix/ui theme
 │   ├── main.tsx            # React root and QueryClient
 │   ├── router.tsx          # router and root layout
@@ -68,7 +70,7 @@ Run from `pwa/`:
 | `bun run build` | Production static build in `pwa/dist/` |
 | `bun run preview` | Serve `pwa/dist/` on `http://0.0.0.0:4174` |
 | `bun run typecheck` | TypeScript check |
-| `bun run test` | Vitest unit tests (connector mapping and rebase) |
+| `bun run test` | Vitest unit tests (connector conflicts, compression, hashing, OPFS, rows) |
 | `bun run icons:generate` | Regenerate PWA PNGs from `public/icon.svg` |
 | `bun run powersync:assets` | Copy the PowerSync worker assets into `public/@powersync` (also runs before dev/build) |
 
@@ -144,6 +146,62 @@ Auth `trustedOrigins`.
   `maskable-icon-512x512.png`, `apple-touch-icon-180x180.png`,
   `favicon.ico`) are committed; do not edit them by hand.
 
+## Capture loop
+
+Routes:
+
+| Route | Purpose |
+| --- | --- |
+| `/dashboard` | Album list, per-album photo counts and the Create Album card |
+| `/albums/new` | Full-page Create Album form |
+| `/albums/:albumId/capture` | Camera preview or file fallback, capture button, last three thumbnails |
+| `/albums/:albumId/finish` | Photo grid, notes editor, delete, Add Photos and Submit |
+| `/albums/:albumId/photos/:photoId` | Full-size OPFS review with previous/next and delete |
+
+All routes require the session gate.
+
+- **Create Album**: the name is trimmed and required. A case-insensitive match
+  against live albums shows "Album already exists" with a Review Existing
+  action instead of Start. Notes use the shared `normalizeNotes` transform:
+  `\n` line endings, a single blank line between paragraphs, and `null` when
+  empty.
+- **Camera**: `getUserMedia({ video: { facingMode: { ideal: "environment" } } })`
+  is requested when the Capture screen mounts. Loading, denied, unavailable and
+  in-use errors are explicit. The camera stream stops on unmount.
+- **Fallback**: `<input type="file" accept="image/*" capture="environment">` is
+  always available. It works when the camera is denied, unavailable, or the
+  browser only supports file capture.
+- **Compression**: images are drawn to a canvas/`OffscreenCanvas` with EXIF
+  orientation applied, resized to a maximum width of 1280 px, and encoded as
+  JPEG. The encoder starts at quality 0.82 and steps to 0.4; if still above the
+  300 KB target it reduces the width and repeats. `image_quality` stores the
+  chosen quality as an integer 1–100.
+- **Checksum and storage**: a lowercase hex SHA-256 is computed with Web Crypto,
+  then bytes are written to OPFS at `photos/{photoId}.jpg`, read back and
+  hash-verified before the `photos` row is inserted. A failed insert removes the
+  file.
+- **Device provider**: the first capture creates one `opfs` provider per
+  organisation in the local database, with `external_id` set to a persisted
+  UUIDv7 device id, `label` "This browser", and
+  `config = { "platform": "web", "deviceName": "Browser", "userAgent": ... }`.
+- **Location**: every capture creates a `photo_locations` row with the provider
+  id and `object_key` `photos/{photoId}.jpg`. Metadata syncs; the bytes stay in
+  OPFS.
+- **Delete**: deleting a photo removes the local `photos` and
+  `photo_locations` rows, which PowerSync uploads as deletes and the API stores
+  as tombstones. The OPFS file is then removed. Reads filter tombstones.
+- **Status chips**: the PWA does not expose per-row sync state, so photo chips
+  follow the global sync state: Synced when the sync engine reports a completed
+  sync, Queued while connecting/uploading, and Device-only while offline or in
+  error.
+- **Sign-out**: clears the PowerSync database, cached profile and the whole
+  `photos/` OPFS directory.
+
+Known browser limits: installed iOS camera behaviour differs from Safari,
+background capture is not guaranteed, and thumbnail rendering is slower than
+the native app. OPFS and the service worker require a secure context; see
+Development on Android Chrome.
+
 ## Authentication and offline start
 
 - Sign-in uses the Better Auth React client at `VITE_API_URL` with
@@ -170,11 +228,12 @@ Auth `trustedOrigins`.
   the trailing slash from `POWERSYNC_URL` because the service rejects endpoints
   ending in `/`.
 - Uploads go to `POST /api/sync/upload` with `opId`, `clientId`, changed columns
-  and `baseVersion`; the `version` column is tracked so deletes can supply the
-  previous version.
-- A `409` conflict rebases locally in one transaction: the server row is written,
-  pending columns are re-applied with the new version, and PowerSync enqueues a
-  fresh upload. The user only sees a sync error if rebase fails.
+  and `baseVersion`. Every table tracks the previous `version`, so a delete can
+  supply the version it is deleting.
+- The upload queue is processed one entry at a time. A `409` conflict records
+  the server version for that row and retries the same pending operation with
+  that version as `baseVersion`; the local row converges when the server row is
+  downloaded. The user only sees a sync error if the retry limit is exhausted.
 - The header badge reports loading, connecting, syncing, synced, offline and
   error states. Reads and writes never depend on the network.
 - `storage_providers.encrypted_data` is not in the PowerSync schema and is not
@@ -210,28 +269,25 @@ deployment model.
 
 ## Camera limits
 
-Browsers do not offer the same camera behaviour as the native app. The planned
-capture task accounts for this:
+Browsers do not offer the same camera behaviour as the native app. The PWA:
 
-- Prefer `navigator.mediaDevices.getUserMedia()` with a live preview.
-- Fall back to `<input type="file" accept="image/*" capture="environment">`
-  when `getUserMedia` is unavailable or denied.
-- Request camera permission only when the Capture screen opens.
-- Document installed-iOS differences from Safari, the lack of guaranteed
-  background capture, and lower thumbnail performance than native.
-- Compress with canvas/`OffscreenCanvas` using the native target: maximum
-  1280 px width, JPEG starting at quality 0.82 toward 300 KB, quality floor
-  0.4.
-- Store bytes in OPFS at `photos/{photoId}.jpg`, with a SHA-256 computed through
-  Web Crypto.
+- prefers `navigator.mediaDevices.getUserMedia()` with a live preview;
+- falls back to `<input type="file" accept="image/*" capture="environment">`
+  when `getUserMedia` is unavailable or denied;
+- requests camera permission only when the Capture screen opens;
+- documents installed-iOS differences from Safari, the lack of guaranteed
+  background capture, and lower thumbnail performance than native;
+- compresses with canvas/`OffscreenCanvas` to at most 1280 px width, JPEG from
+  quality 0.82 toward 300 KB with a 0.4 floor;
+- stores bytes in OPFS at `photos/{photoId}.jpg` with a Web Crypto SHA-256.
 
 ## Roadmap
 
 | Prompt | Scope |
 | --- | --- |
 | `prompts/0028-pwa-reintroduced.done.md` | Shell, PWA support, environment, icons, docs (this document) |
-| `prompts/0029-pwa-sync.done.md` | Cookie auth, PWA origins, `@powersync/web` with WA-SQLite/OPFS, TanStack DB, read-only Dashboard |
-| `prompts/0030-pwa-photo-capture.md` | Camera capture, compression, SHA-256, OPFS photo bytes, `opfs` provider with `config.platform: "web"`, capture-loop screens |
+| `prompts/0029-pwa-sync.done.md` | Cookie auth, PWA origins, `@powersync/web` with WA-SQLite/OPFS, TanStack DB, Dashboard reads |
+| `prompts/0030-pwa-photo-capture.done.md` | Camera capture, compression, SHA-256, OPFS photo bytes, `opfs` provider with `config.platform: "web"`, capture-loop screens |
 
 ## Verification
 

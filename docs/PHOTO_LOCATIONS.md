@@ -4,7 +4,7 @@ This document describes how photo bytes are located across the backing stores
 used by lofipix. The `photos` row holds image metadata and never the bytes
 themselves (see `docs/PHOTOS.md`). A photo can exist in several places at once:
 
-- **Device filesystem (`opfs`/`app_fs` provider type)** — the local copy on the mobile device that captured it;
+- **Device filesystem (`opfs`/`app_fs` provider type)** — the local copy on the device that captured it: browser origin-private filesystem (OPFS) in the PWA, or app documents storage in the native app;
 - **S3** — the canonical copy in LoFi Pix object storage;
 - **OneDrive / Google Drive** — an optional copy exported to the customer's
   own drive.
@@ -14,8 +14,10 @@ records that a photo has actually been written to one of those providers. A
 location row is evidence that the bytes exist; it is created only after the
 write has been verified.
 
-There is deliberately **no `devices` table**. Each mobile device is an ordinary
-`opfs` or `app_fs` storage provider, identified by a client-minted device UUID.
+There is deliberately **no `devices` table**. Each client is an ordinary `opfs`
+or `app_fs` storage provider, identified by a client-minted device UUID. The PWA
+registers an `opfs` provider with `platform: "web"`; the native app uses
+`app_fs` (or `opfs` where its storage layer exposes it).
 
 ## Data model
 
@@ -89,8 +91,8 @@ ids offline.
 | `provider_type` | `storage_provider_type` | Not null. Enum: `opfs`, `app_fs`, `s3`, `onedrive`, `google_drive`. |
 | `label` | `text` | Human-readable name shown in the UI, e.g. "LoFi Pix cloud", "Paul's OneDrive", "Pixel 8". Not null. |
 | `external_id` | `text` | Not null. Provider-native identity. See [Provider identity](#provider-identity). |
-| `config` | `jsonb` | Not null, default `{}`. Public, non-secret provider settings. Synced to the mobile app as part of the `storage_providers` sync stream. |
-| `encrypted_data` | `jsonb` | Not null, default `{}`. Encrypted-at-rest JSONB column holding individually encrypted secret fields. Synced to the mobile app and returned from client-facing endpoints; only the API server holds `STORAGE_PROVIDER_CREDENTIALS_KEY` and can decrypt it. |
+| `config` | `jsonb` | Not null, default `{}`. Public, non-secret provider settings. Synced to the mobile app and PWA as part of the `storage_providers` sync stream. |
+| `encrypted_data` | `jsonb` | Not null, default `{}`. Encrypted-at-rest JSONB column holding individually encrypted secret fields. Server-side only: excluded from PowerSync streams and client schemas. Only the API server holds `STORAGE_PROVIDER_CREDENTIALS_KEY` and can decrypt it. |
 | `version` | `bigint` | Server-incremented optimistic-concurrency version. Starts at 1. |
 | `deleted_at` | `timestamptz` | Tombstone. Null for live rows. |
 | `created_at` | `timestamptz` | Row creation time, `now()` by default. |
@@ -103,7 +105,7 @@ provider type:
 
 | Type | `external_id` |
 | --- | --- |
-| `opfs` | Client-minted UUIDv7 device identifier. This is the mobile device's stable identity; `storage_providers.id` is a separate row id. |
+| `opfs` | Client-minted UUIDv7 device identifier. This is the device's (or browser's) stable identity; `storage_providers.id` is a separate row id. |
 | `app_fs` | Client-minted UUIDv7 device identifier. Same as `opfs` for native apps; `storage_providers.id` is a separate row id. |
 | `s3` | Bucket name, e.g. `storage-cholet-lofipix`. |
 | `onedrive` | OneDrive drive id (personal or business). |
@@ -140,7 +142,8 @@ name. The Zod schemas validate `config` per provider type.
 }
 ```
 
-- `platform` is required and is `ios` or `android`.
+- `platform` is required and is `ios`, `android` or `web`.
+- `web` is the browser PWA using the origin-private filesystem (OPFS).
 - `deviceName`, `model`, `osVersion`, `appVersion` and `userAgent` are
   optional. They exist to label the device and diagnose capture problems.
 - An `opfs` or `app_fs` provider has no secrets; `encrypted_data` stays `{}`.
@@ -198,7 +201,11 @@ Google Drive additionally stores `rootFolderId` once the folder is created.
 only and is not used as the provider identity.
 
 `expiresAt`, `scope` and `tokenType` are plaintext operational metadata in
-`config`. The `encrypted_data` column holds only secret fields:
+`config`. The `encrypted_data` column is server-side only: it is excluded from every
+PowerSync stream and from the PWA/mobile local schema. The `storage_providers`
+stream selects explicit non-secret columns instead of `storage_providers.*`.
+
+The `encrypted_data` column holds only secret fields:
 
 | Field | Treatment |
 | --- | --- |
@@ -234,17 +241,19 @@ prefix without changing the column type.
 
 The encryption helpers live in `packages/db/crypto.ts`:
 `encryptCredential` and `decryptCredential`. Secrets are decrypted only inside
-the API and background jobs. They are never logged; the encrypted blob is
-synced to the mobile app and returned from client-facing endpoints, but the
-plaintext is never exposed.
+the API and background jobs. They are never logged, and the encrypted blob is
+not included in client sync streams or client schemas; the plaintext is never
+exposed.
 
 **Public config**
 
 `storageProviderSelectSchema` and `storageProviderInsertSchema` cover the full
-row including `encrypted_data`. Non-secret fields (`platform`, `endpoint`,
-`rootFolder`, `expiresAt`, `scope`, `tokenType`, …) remain visible alongside
-the encrypted blob, and the `storage_providers` PowerSync stream selects
-`storage_providers.*` (see [PowerSync](#powersync)).
+server row including `encrypted_data`, and validate that an `opfs` or `app_fs`
+provider carries a `config.platform` of `ios`, `android` or `web`. Non-secret
+fields (`platform`, `endpoint`, `rootFolder`, `expiresAt`, `scope`,
+`tokenType`, …) remain visible alongside the encrypted blob. The encrypted
+blob itself is excluded from the `storage_providers` PowerSync stream and from
+client schemas (see [PowerSync](#powersync)).
 
 There is no "masked token" field: clients learn whether a provider is
 connected from its tombstone state and OAuth status, not from encrypted
@@ -256,7 +265,7 @@ contents.
 - `CHECK (length(btrim(external_id)) > 0)`.
 - `CHECK (jsonb_typeof(config) = 'object')`.
 - `CHECK (jsonb_typeof(encrypted_data) = 'object')`.
-- `CHECK ((provider_type <> 'opfs' AND provider_type <> 'app_fs') OR (config ? 'platform' AND config ->> 'platform' IN ('ios', 'android')))`.
+- `CHECK ((provider_type <> 'opfs' AND provider_type <> 'app_fs') OR (jsonb_typeof(config) = 'object' AND config ? 'platform' AND config ->> 'platform' IN ('ios', 'android', 'web')))`.
 - Partial unique index on `(organization_id, provider_type, external_id)`
   where `deleted_at IS NULL`.
 - Index on `organization_id` for listing an organisation's providers.
@@ -323,7 +332,7 @@ introduced without changing the schema.
 | S3 | `{organizationId}/albums/{albumId}/photos/{photoId}.jpg`, optionally prefixed by the provider's `config.prefix`. |
 | OneDrive | `{albumName}/{photoPosition}.jpg`, relative to `config.rootFolder`. |
 | Google Drive | `{albumName}/{photoPosition}.jpg`, Same path relative to the configured root folder. |
-| `opfs` | `photos/{photoId}.jpg` inside the mobile app's documents directory. The device is identified by the provider's `external_id`. |
+| `opfs` | `photos/{photoId}.jpg` inside the browser's origin-private filesystem (PWA). The device is identified by the provider's `external_id`. |
 | `app_fs` | `photos/{photoId}.jpg` inside the native app's documents/sandbox directory. The device is identified by the provider's `external_id`. |
 
 Rules:
@@ -513,16 +522,16 @@ include `encrypted_data`.
   membership. A provider, photo and location are always reconciled to the same
   organisation; cross-organisation ids are rejected.
 - **Credentials**: each secret field in the `encrypted_data` column is
-  individually encrypted with AES-256-GCM. The encrypted blob is synced to the
-  mobile app and returned from client-facing endpoints; it is never logged and
-  is only decrypted in the API process or a trusted worker.
+  individually encrypted with AES-256-GCM. The encrypted blob is never included
+  in client sync streams or responses; it is never logged and is only decrypted
+  in the API process or a trusted worker.
 - **Object access**: S3 is private. Clients receive short-lived
   pre-signed URLs scoped to one object; they never hold S3 credentials.
 - **Key validation**: `object_key` is validated against the deterministic
   expected value before any location insert or provider API call. Reject path
   traversal, absolute paths and keys belonging to another photo.
 - **PII**: `opfs`/`app_fs` `config` contains device details and is visible to the other
-  devices in the same organisation through the org-scoped sync stream. Do not add
+  devices and browsers in the same organisation through the org-scoped sync stream. Do not add
   advertising identifiers or precise location.
 - **Provider metadata**: `config.accountEmail` and labels are non-secret but
   visible to other devices in the same organisation.

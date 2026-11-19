@@ -4,27 +4,29 @@ import {
   syncUploadResponseSchema,
   type SyncTableName,
   type SyncUploadEntry,
-  type SyncUploadResult,
 } from "@lofipix/db/schema";
 import {
   UpdateType,
   type CommonPowerSyncDatabase,
   type CrudEntry,
   type PowerSyncBackendConnector,
-  type Transaction,
 } from "@powersync/web";
 
 import { pwaEnvironment } from "../../config/environment";
 import { resolveApiUrl } from "../api";
 import { markSessionStale } from "../session-store";
 import {
-  buildRebaseRows,
+  clearConflictVersions,
+  conflictKey,
+  mergeConflictVersions,
   resolveBaseVersion,
   toNumericVersion,
   type UploadOp,
 } from "./connector-utils";
 
 const syncTables = new Set<string>(syncTableNames);
+const versionOverrides = new Map<string, number>();
+const MAX_CONFLICT_RETRIES = 4;
 
 export function isSyncTable(table: string): table is SyncTableName {
   return syncTables.has(table);
@@ -65,85 +67,13 @@ async function toUploadEntry(
     opData: entry.opData ?? {},
     opId: entry.clientId,
     clientId,
-    baseVersion: resolveBaseVersion(entry.op as UploadOp, entry.previousValues, localVersion),
+    baseVersion: resolveBaseVersion(
+      entry.op as UploadOp,
+      entry.previousValues,
+      localVersion,
+      versionOverrides.get(conflictKey(entry.table, entry.id)),
+    ),
   };
-}
-
-async function writeServerRow(
-  tx: Transaction,
-  table: SyncTableName,
-  row: Record<string, unknown>,
-): Promise<void> {
-  const id = row.id;
-  if (typeof id !== "string") {
-    throw new Error(`Server row for ${table} is missing an id`);
-  }
-
-  const columns = Object.keys(row).filter((column) => column !== "id");
-  if (columns.length === 0) {
-    return;
-  }
-
-  const values = columns.map((column) => row[column]);
-  const updated = await tx.execute<{ id: string }>(
-    `UPDATE ${table} SET ${columns.map((column) => `${column} = ?`).join(", ")} WHERE id = ? RETURNING id`,
-    [...values, id],
-  );
-  if (updated.array.length > 0) {
-    return;
-  }
-
-  const insertColumns = ["id", ...columns];
-  await tx.execute(
-    `INSERT INTO ${table} (${insertColumns.join(", ")}) VALUES (${insertColumns.map(() => "?").join(", ")})`,
-    [id, ...values],
-  );
-}
-
-async function reapplyPending(
-  tx: Transaction,
-  table: SyncTableName,
-  id: string,
-  pendingRow: Record<string, unknown>,
-): Promise<void> {
-  const columns = Object.keys(pendingRow);
-  if (columns.length === 0) {
-    return;
-  }
-  await tx.execute(
-    `UPDATE ${table} SET ${columns.map((column) => `${column} = ?`).join(", ")} WHERE id = ?`,
-    [...columns.map((column) => pendingRow[column]), id],
-  );
-}
-
-async function rebaseConflicts(
-  database: CommonPowerSyncDatabase,
-  entries: CrudEntry[],
-  results: SyncUploadResult[],
-): Promise<void> {
-  const entriesByOpId = new Map(entries.map((entry) => [entry.clientId, entry]));
-  const conflicts = results.filter(
-    (result) => result.status === "conflict" && result.record,
-  );
-  if (conflicts.length === 0) {
-    return;
-  }
-
-  await database.writeTransaction(async (tx) => {
-    for (const result of conflicts) {
-      const entry = entriesByOpId.get(result.opId);
-      if (!entry || !result.record || !isSyncTable(entry.table)) {
-        throw new Error(`Cannot rebase op ${result.opId}`);
-      }
-      const { serverRow, pendingRow } = buildRebaseRows(
-        entry.table,
-        result.record,
-        entry.opData ?? {},
-      );
-      await writeServerRow(tx, entry.table, serverRow);
-      await reapplyPending(tx, entry.table, entry.id, pendingRow);
-    }
-  });
 }
 
 async function requestCredentials(): Promise<string | null> {
@@ -175,58 +105,89 @@ async function requestCredentials(): Promise<string | null> {
   return (body as { token: string }).token;
 }
 
-async function uploadBatch(database: CommonPowerSyncDatabase): Promise<void> {
-  const batch = await database.getCrudBatch(100);
-  if (!batch) {
-    return;
-  }
-
+async function uploadQueue(database: CommonPowerSyncDatabase): Promise<void> {
   const clientId = await database.getClientId();
-  const uploads: SyncUploadEntry[] = [];
-  for (const entry of batch.crud) {
-    uploads.push(await toUploadEntry(database, clientId, entry));
-  }
 
-  const payload = syncUploadRequestSchema.parse({ uploads });
-  const response = await fetch(resolveApiUrl("api/sync/upload"), {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (response.status === 401 || response.status === 403) {
-    markSessionStale();
-    throw new Error("Session expired while uploading changes");
-  }
-
-  const body: unknown = await response.json().catch(() => null);
-  const parsed = syncUploadResponseSchema.safeParse(body);
-  if (!parsed.success) {
-    throw new Error(`Invalid sync upload response: ${response.status}`);
-  }
-
-  if (response.ok) {
-    await batch.complete();
-    return;
-  }
-
-  if (response.status === 409) {
-    const rejected = parsed.data.results.find(
-      (result) => result.status === "rejected",
-    );
-    if (rejected) {
-      throw new Error(rejected.error ?? "Sync upload was rejected");
+  while (true) {
+    const batch = await database.getCrudBatch(1);
+    if (!batch) {
+      return;
     }
-    await rebaseConflicts(database, batch.crud, parsed.data.results);
-    await batch.complete();
-    return;
-  }
+    const entries = batch.crud;
+    let settled = false;
 
-  throw new Error(`Sync upload failed: ${response.status}`);
+    for (let attempt = 0; attempt < MAX_CONFLICT_RETRIES; attempt += 1) {
+      const uploads: SyncUploadEntry[] = [];
+      for (const entry of entries) {
+        uploads.push(await toUploadEntry(database, clientId, entry));
+      }
+
+      const payload = syncUploadRequestSchema.parse({ uploads });
+      const response = await fetch(resolveApiUrl("api/sync/upload"), {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.status === 401 || response.status === 403) {
+        markSessionStale();
+        throw new Error("Session expired while uploading changes");
+      }
+
+      const body: unknown = await response.json().catch(() => null);
+      const parsed = syncUploadResponseSchema.safeParse(body);
+      if (!parsed.success) {
+        throw new Error(`Invalid sync upload response: ${response.status}`);
+      }
+
+      if (response.ok) {
+        clearConflictVersions(
+          versionOverrides,
+          uploads.map((upload) => ({ table: upload.table, id: upload.id })),
+        );
+        await batch.complete();
+        settled = true;
+        break;
+      }
+
+      if (response.status === 409) {
+        const rejected = parsed.data.results.find(
+          (result) => result.status === "rejected",
+        );
+        if (rejected) {
+          throw new Error(rejected.error ?? "Sync upload was rejected");
+        }
+
+        const conflicts = parsed.data.results.filter(
+          (result) => result.status === "conflict" && result.record,
+        );
+        if (conflicts.length === 0) {
+          throw new Error("Sync upload conflicted without a server row");
+        }
+
+        const next = mergeConflictVersions(
+          versionOverrides,
+          uploads.map((upload) => ({ table: upload.table, id: upload.id })),
+          parsed.data.results,
+        );
+        versionOverrides.clear();
+        for (const [key, value] of next) {
+          versionOverrides.set(key, value);
+        }
+        continue;
+      }
+
+      throw new Error(`Sync upload failed: ${response.status}`);
+    }
+
+    if (!settled) {
+      throw new Error("Sync upload kept conflicting with the server");
+    }
+  }
 }
 
 export const powerSyncConnector: PowerSyncBackendConnector = {
@@ -241,6 +202,6 @@ export const powerSyncConnector: PowerSyncBackendConnector = {
     };
   },
   async uploadData(database) {
-    await uploadBatch(database);
+    await uploadQueue(database);
   },
 };

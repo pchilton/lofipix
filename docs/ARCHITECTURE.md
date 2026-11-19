@@ -28,7 +28,7 @@ A plain static site: no service worker, no sync engine, no local persistence.
 Installable browser capture app for users who cannot use the native store builds.
 The PWA was rebuilt in increments after the React migration: prompt 0028
 delivered the shell and PWA support, 0029 added cookie auth and PowerSync web
-sync, and 0030 adds camera capture and OPFS photo bytes. See `docs/PWA.md`.
+sync, and 0030 added camera capture and OPFS photo bytes. See `docs/PWA.md`.
 
 - UI Framework & Build Tools: React 19 + Vite static SPA, TypeScript, Bun in the root workspace. No SSR and no server runtime.
 - PWA Support: `vite-plugin-pwa` with a Workbox-generated service worker, web manifest, generated icons and an in-app update prompt.
@@ -38,9 +38,9 @@ sync, and 0030 adds camera capture and OPFS photo bytes. See `docs/PWA.md`.
 - Forms: TanStack Form (React) + Zod.
 - Environment: build-time Vite modes (`pwa/.env.development`, `pwa/.env.production`) exposing public endpoint URLs only.
 - Authentication: Better Auth cookie sessions, like the website. A non-secret profile in `localStorage` allows an offline launch; a `401`/`403` marks it stale and prompts re-login.
-- Local Database and Sync: `@powersync/web` with WA-SQLite (OPFS when available), TanStack DB collections, the same `/api/sync/token` and upload/rebase contract as mobile. The connector authenticates with cookies and strips the trailing slash from the PowerSync endpoint.
-- Photo Bytes (planned, 0030): the browser origin-private filesystem (OPFS) at `photos/{photoId}.jpg`, with the `opfs` storage provider and `config.platform: "web"`.
-- Camera: browser `getUserMedia` with an `<input capture>` fallback; browser limits are documented in `docs/PWA.md`.
+- Local Database and Sync: `@powersync/web` with WA-SQLite (OPFS when available), TanStack DB collections, the same `/api/sync/token` and upload/rebase contract as mobile. The connector authenticates with cookies, strips the trailing slash from the PowerSync endpoint, and retries conflicts with the server version.
+- Photo Bytes: the browser origin-private filesystem (OPFS) at `photos/{photoId}.jpg`, with the `opfs` storage provider and `config.platform: "web"`; a SHA-256 checksum is verified before the row is inserted.
+- Camera: browser `getUserMedia` with an `<input capture>` fallback; canvas compression to at most 1280 px and 300 KB; browser limits are documented in `docs/PWA.md`.
 - Async UX: Every async operation has explicit loading, error, success, and offline states.
 - Testing: Vitest for web units; Playwright can drive the built PWA.
 - Deployment: static build for the planned `https://pwa.lofipix.app` Cloudflare target.

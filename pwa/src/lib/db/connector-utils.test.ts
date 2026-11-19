@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { buildRebaseRows, resolveBaseVersion } from "./connector-utils";
+import type { SyncUploadResult } from "@lofipix/db/schema";
+
+import {
+  clearConflictVersions,
+  conflictKey,
+  mergeConflictVersions,
+  resolveBaseVersion,
+} from "./connector-utils";
 
 describe("resolveBaseVersion", () => {
   it("starts inserts at version zero", () => {
@@ -18,84 +25,43 @@ describe("resolveBaseVersion", () => {
   it("falls back to the local version when no previous value was tracked", () => {
     expect(resolveBaseVersion("PATCH", undefined, 4)).toBe(4);
   });
+
+  it("prefers a conflict override over the tracked version", () => {
+    expect(resolveBaseVersion("PATCH", { version: 2 }, 2, 11)).toBe(11);
+    expect(resolveBaseVersion("DELETE", undefined, 0, 11)).toBe(11);
+  });
 });
 
-describe("buildRebaseRows", () => {
-  it("maps a server record and keeps pending album columns", () => {
-    const { serverRow, pendingRow } = buildRebaseRows(
-      "albums",
-      {
-        id: "album-1",
-        organizationId: "org-1",
-        name: "Server name",
-        notes: "Server notes",
-        version: 6,
-        originatedAt: "2026-01-01T00:00:00.000Z",
-        createdAt: "2026-01-01T00:00:00.000Z",
-        updatedAt: null,
-        deletedAt: null,
-      },
-      {
-        id: "album-1",
-        name: "Local name",
-        version: 4,
-        organization_id: "org-1",
-      },
-    );
+describe("mergeConflictVersions", () => {
+  const uploads = [
+    { table: "albums" as const, id: "album-1" },
+    { table: "photos" as const, id: "photo-1" },
+  ];
 
-    expect(serverRow).toMatchObject({
-      id: "album-1",
-      organization_id: "org-1",
-      name: "Server name",
-      version: 6,
-    });
-    expect(pendingRow).toEqual({
-      name: "Local name",
-      organization_id: "org-1",
-    });
+  it("records the server version for each conflicted row", () => {
+    const results: SyncUploadResult[] = [
+      { opId: 1, status: "applied" },
+      {
+        opId: 2,
+        status: "conflict",
+        record: { id: "photo-1", version: 5, albumId: "album-1" },
+      },
+    ];
+
+    const next = mergeConflictVersions(new Map(), uploads, results);
+    expect(next.get(conflictKey("photos", "photo-1"))).toBe(5);
+    expect(next.has(conflictKey("albums", "album-1"))).toBe(false);
   });
 
-  it("never exposes encrypted provider data", () => {
-    const { serverRow } = buildRebaseRows(
-      "storage_providers",
-      {
-        id: "provider-1",
-        organizationId: "org-1",
-        providerType: "opfs",
-        label: "This device",
-        externalId: "device-1",
-        config: { platform: "web" },
-        encryptedData: { token: "secret" },
-        version: 2,
-        originatedAt: "2026-01-01T00:00:00.000Z",
-        createdAt: "2026-01-01T00:00:00.000Z",
-        updatedAt: null,
-        deletedAt: null,
-      },
-      { label: "Local label", config: '{"platform":"web"}' },
-    );
+  it("keeps unrelated overrides and clears uploaded rows", () => {
+    const overrides = new Map([[conflictKey("albums", "album-1"), 3]]);
+    const next = mergeConflictVersions(overrides, uploads, [
+      { opId: 1, status: "applied" },
+      { opId: 2, status: "applied" },
+    ]);
+    expect(next.get(conflictKey("albums", "album-1"))).toBe(3);
 
-    expect(serverRow).not.toHaveProperty("encrypted_data");
-    expect(serverRow).not.toHaveProperty("encryptedData");
-    expect(serverRow.config).toBe('{"platform":"web"}');
-  });
-
-  it("drops unknown and identity columns from the pending update", () => {
-    const { pendingRow } = buildRebaseRows(
-      "photos",
-      { id: "photo-1", albumId: "album-1", version: 3 },
-      {
-        id: "photo-1",
-        version: 2,
-        album_id: "album-1",
-        image_checksum: "abc",
-        unknown_column: "ignored",
-      },
-    );
-
-    expect(pendingRow).toEqual({
-      album_id: "album-1",
-      image_checksum: "abc",
-    });
+    clearConflictVersions(next, uploads);
+    expect(next.size).toBe(0);
   });
 });

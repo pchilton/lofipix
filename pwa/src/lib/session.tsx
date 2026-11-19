@@ -10,6 +10,7 @@ import {
 
 import { authClient, describeAuthError } from "./auth-client";
 import { clearLocalData, connectPowerSync, disconnectPowerSync } from "./db/sync";
+import { clearPhotoFiles } from "./photos/opfs";
 import {
   clearCachedProfile,
   profileFromSession,
@@ -125,6 +126,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       await clearLocalData();
     } catch {
       // The local database may not have been opened yet.
+    }
+    try {
+      await clearPhotoFiles();
+    } catch {
+      // OPFS may be unavailable in this browser.
     }
   }, []);
 

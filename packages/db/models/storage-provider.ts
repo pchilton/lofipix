@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  check,
   index,
   integer,
   jsonb,
@@ -37,6 +38,10 @@ export const storageProviders = pgTable(
   },
   (table) => [
     index('storage_providers_organization_id_idx').on(table.organizationId),
+    check(
+      'storage_providers_device_platform_check',
+      sql`(${table.providerType} <> 'opfs' AND ${table.providerType} <> 'app_fs') OR (jsonb_typeof(${table.config}) = 'object' AND ${table.config} ? 'platform' AND ${table.config} ->> 'platform' IN ('ios', 'android', 'web'))`,
+    ),
   ],
 );
 
@@ -46,8 +51,37 @@ const storageProviderRefinements = {
   providerType: (schema: typeof providerTypeSchema) => schema,
 };
 
-export const storageProviderSelectSchema = createSelectSchema(storageProviders, storageProviderRefinements);
-export const storageProviderInsertSchema = createInsertSchema(storageProviders, storageProviderRefinements);
+const devicePlatformValues = ['ios', 'android', 'web'] as const;
+
+function devicePlatformIsValid(row: { providerType?: unknown; config?: unknown }): boolean {
+  if (row.providerType !== 'opfs' && row.providerType !== 'app_fs') {
+    return true;
+  }
+  if (!row.config || typeof row.config !== 'object') {
+    return false;
+  }
+  const platform = (row.config as Record<string, unknown>).platform;
+  return (
+    typeof platform === 'string' &&
+    (devicePlatformValues as readonly string[]).includes(platform)
+  );
+}
+
+
+export const storageProviderSelectSchema = createSelectSchema(
+  storageProviders,
+  storageProviderRefinements,
+).refine(devicePlatformIsValid, {
+  path: ['config', 'platform'],
+  message: 'Device storage providers require platform ios, android or web.',
+});
+export const storageProviderInsertSchema = createInsertSchema(
+  storageProviders,
+  storageProviderRefinements,
+).refine(devicePlatformIsValid, {
+  path: ['config', 'platform'],
+  message: 'Device storage providers require platform ios, android or web.',
+});
 
 export type StorageProvider = z.infer<typeof storageProviderSelectSchema>;
 export type NewStorageProvider = z.infer<typeof storageProviderInsertSchema>;

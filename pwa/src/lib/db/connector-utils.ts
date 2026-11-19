@@ -1,8 +1,4 @@
-import {
-  serverRowToLocal,
-  syncTableColumnMap,
-  type SyncTableName,
-} from "@lofipix/db/schema";
+import type { SyncTableName, SyncUploadResult } from "@lofipix/db/schema";
 
 export type UploadOp = "PUT" | "PATCH" | "DELETE";
 
@@ -17,37 +13,57 @@ export function toNumericVersion(value: unknown): number | null {
   return null;
 }
 
+export function conflictKey(table: SyncTableName, id: string): string {
+  return `${table}:${id}`;
+}
+
 export function resolveBaseVersion(
   op: UploadOp,
   previousValues: Record<string, unknown> | undefined,
   localVersion: number,
+  overrideVersion?: number | null,
 ): number {
   if (op === "PUT") {
     return 0;
   }
+  if (overrideVersion !== null && overrideVersion !== undefined) {
+    return overrideVersion;
+  }
   return toNumericVersion(previousValues?.version) ?? localVersion;
 }
 
-export interface RebaseRows {
-  serverRow: Record<string, unknown>;
-  pendingRow: Record<string, unknown>;
+export interface PendingUploadRef {
+  table: SyncTableName;
+  id: string;
 }
 
-export function buildRebaseRows(
-  table: SyncTableName,
-  serverRecord: Record<string, unknown>,
-  opData: Record<string, unknown>,
-): RebaseRows {
-  const serverRow = serverRowToLocal(table, serverRecord);
-  delete serverRow.encrypted_data;
+export function mergeConflictVersions(
+  overrides: ReadonlyMap<string, number>,
+  uploads: readonly PendingUploadRef[],
+  results: readonly SyncUploadResult[],
+): Map<string, number> {
+  const next = new Map(overrides);
+  const byOpId = new Map(uploads.map((upload, index) => [index, upload]));
 
-  const columns = new Set(Object.keys(syncTableColumnMap[table]));
-  const pendingRow: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(opData)) {
-    if (key !== "id" && key !== "version" && columns.has(key)) {
-      pendingRow[key] = value;
+  results.forEach((result, index) => {
+    if (result.status !== "conflict" || !result.record) {
+      return;
     }
-  }
+    const upload = byOpId.get(index);
+    const version = toNumericVersion(result.record.version);
+    if (upload && version !== null) {
+      next.set(conflictKey(upload.table, upload.id), version);
+    }
+  });
 
-  return { serverRow, pendingRow };
+  return next;
+}
+
+export function clearConflictVersions(
+  overrides: Map<string, number>,
+  uploads: readonly PendingUploadRef[],
+): void {
+  for (const upload of uploads) {
+    overrides.delete(conflictKey(upload.table, upload.id));
+  }
 }

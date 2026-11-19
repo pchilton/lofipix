@@ -92,16 +92,20 @@ joins to `albums` because the photos table has no organisation column. Both
 streams include tombstones; the mobile app filters `deleted_at is null` in
 reads.
 
-The mobile app creates photo rows offline, which is why the id, `position` and
-`originated_at` are supplied by the client. PowerSync's upload queue posts them
-to `POST /api/sync/upload`, which checks the parent album's organisation and the
-`version`/`baseVersion` pair.
+The native app and the browser PWA create photo rows offline, which is why the
+id, `position` and `originated_at` are supplied by the client. PowerSync's
+upload queue posts them to `POST /api/sync/upload`, which checks the parent
+album's organisation and the `version`/`baseVersion` pair. The PWA stores the
+bytes in OPFS rather than app documents storage; see
+`docs/PHOTO_LOCATIONS.md`.
 
 ## Backing stores
 
 The image bytes are stored in three places over the life of a photo:
 
-1. **Device filesystem** — the local copy in the mobile app's documents directory while the photo is offline. `app_fs` or `opfs` (see `docs/PHOTO_LOCATIONS.md`).
+1. **Device filesystem** — the local copy while the photo is offline: the
+   browser origin-private filesystem (OPFS) in the PWA, or the native app's
+   documents directory (`app_fs`/`opfs`). See `docs/PHOTO_LOCATIONS.md`.
 2. **SeaweedFS** — the canonical copy in object storage, reached through
    pre-signed URLs issued by the API (see `docs/STORAGE.md`).
 3. **OneDrive / Google Drive** — an optional copy synced from the canonical

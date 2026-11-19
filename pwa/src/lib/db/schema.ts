@@ -17,6 +17,7 @@ export const AppSchema = new Schema({
         albums_organization_id: ["organization_id"],
         albums_created_at: ["created_at"],
       },
+      trackPrevious: { columns: ["version"] },
     },
   ),
   photos: new Table(
@@ -39,6 +40,7 @@ export const AppSchema = new Schema({
         photos_album_id: ["album_id"],
         photos_position: ["position"],
       },
+      trackPrevious: { columns: ["version"] },
     },
   ),
   photo_locations: new Table(
@@ -56,6 +58,7 @@ export const AppSchema = new Schema({
       indexes: {
         photo_locations_photo_id: ["photo_id"],
       },
+      trackPrevious: { columns: ["version"] },
     },
   ),
   storage_providers: new Table(
@@ -76,6 +79,7 @@ export const AppSchema = new Schema({
         storage_providers_organization_id: ["organization_id"],
         storage_providers_external_id: ["external_id"],
       },
+      trackPrevious: { columns: ["version"] },
     },
   ),
 });

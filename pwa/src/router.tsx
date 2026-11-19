@@ -7,6 +7,10 @@ import { pwaEnvironment } from "./config/environment";
 import { isSessionStale } from "./lib/session-store";
 import { readCachedProfile } from "./lib/session-profile";
 import { useSession } from "./lib/session";
+import Capture from "./routes/albums/Capture";
+import CreateAlbum from "./routes/albums/CreateAlbum";
+import FinishAlbum from "./routes/albums/FinishAlbum";
+import PhotoReview from "./routes/albums/PhotoReview";
 import Dashboard from "./routes/Dashboard";
 import Settings from "./routes/Settings";
 import Welcome from "./routes/Welcome";
@@ -103,7 +107,39 @@ const settingsRoute = createRoute({
   component: Settings,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, dashboardRoute, settingsRoute]);
+const createAlbumRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/albums/new",
+  component: CreateAlbum,
+});
+
+const captureRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/albums/$albumId/capture",
+  component: Capture,
+});
+
+const finishAlbumRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/albums/$albumId/finish",
+  component: FinishAlbum,
+});
+
+const photoReviewRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/albums/$albumId/photos/$photoId",
+  component: PhotoReview,
+});
+
+const routeTree = rootRoute.addChildren([
+  indexRoute,
+  dashboardRoute,
+  settingsRoute,
+  createAlbumRoute,
+  captureRoute,
+  finishAlbumRoute,
+  photoReviewRoute,
+]);
 
 export const router = createRouter({ routeTree });
 

@@ -155,6 +155,9 @@ Full-size local image from the app documents directory.
 - Synced rows are a cache. Pending writes live in PowerSync's durable upload
   queue.
 - Signing out clears the PowerSync database, cached session and local photo bytes.
+- The PWA keeps the same four-table local schema and upload contract in
+  `pwa/src/lib/db/`; its bytes live in OPFS instead of the app documents
+  directory.
 
 ## Sync
 
@@ -189,6 +192,10 @@ The full JWT/upload/rebase contract is in `docs/POWERSYNC.md`.
 - Save under `photos/<photo-id>.jpg` in the app documents directory.
 - Insert only metadata into PowerSync SQLite; the upload queue syncs it.
 - Bytes remain device-only; SeaweedFS upload is a later task.
+
+The browser PWA (`pwa/`) mirrors this contract with `getUserMedia`, canvas
+compression and OPFS bytes at `photos/{photoId}.jpg`. It registers an `opfs`
+provider with `config.platform: "web"`; see `docs/PWA.md`.
 
 ## Authentication
 

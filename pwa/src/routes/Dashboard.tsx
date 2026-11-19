@@ -1,11 +1,5 @@
-import { useLiveQuery } from "@tanstack/react-db";
 import {
-  albumSelectSchema,
-  photoSelectSchema,
-  type Album,
-  type Photo,
-} from "@lofipix/db/schema";
-import {
+  Badge,
   Button,
   Card,
   CardContent,
@@ -14,90 +8,49 @@ import {
   CardTitle,
   Skeleton,
 } from "@lofipix/ui";
+import { Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 import IconCloudOff from "~icons/lucide/cloud-off";
 import IconImageOff from "~icons/lucide/image-off";
 import IconRefreshCw from "~icons/lucide/refresh-cw";
 
+import { CreateAlbumForm } from "../components/photos/CreateAlbumForm";
+import { PhotoThumbnail } from "../components/photos/PhotoThumbnail";
 import { RequireSession } from "../components/RequireSession";
 import { SyncBadge } from "../components/SyncBadge";
-import { albumsCollection, photosCollection } from "../lib/db/collections";
-import type { AlbumRow, PhotoRow } from "../lib/db/schema";
+import { useAlbums, useAllPhotos } from "../lib/photos/read";
 import { useSession } from "../lib/session";
-
-function dateValue(value: string | null | undefined): Date | null {
-  return value ? new Date(value) : null;
-}
-
-function toAlbum(row: AlbumRow): Album | null {
-  const parsed = albumSelectSchema.safeParse({
-    id: row.id,
-    organizationId: row.organization_id,
-    name: row.name,
-    notes: row.notes,
-    version: row.version,
-    originatedAt: dateValue(row.originated_at),
-    createdAt: dateValue(row.created_at),
-    updatedAt: dateValue(row.updated_at),
-    deletedAt: dateValue(row.deleted_at),
-  });
-  return parsed.success ? parsed.data : null;
-}
-
-function toPhoto(row: PhotoRow): Photo | null {
-  const parsed = photoSelectSchema.safeParse({
-    id: row.id,
-    albumId: row.album_id,
-    position: row.position,
-    imageWidth: row.image_width,
-    imageHeight: row.image_height,
-    imageQuality: row.image_quality,
-    imageSize: row.image_size,
-    imageChecksum: row.image_checksum,
-    version: row.version,
-    originatedAt: dateValue(row.originated_at),
-    createdAt: dateValue(row.created_at),
-    updatedAt: dateValue(row.updated_at),
-    deletedAt: dateValue(row.deleted_at),
-  });
-  return parsed.success ? parsed.data : null;
-}
 
 function AlbumsContent() {
   const { profile, isOffline } = useSession();
-  const albumQuery = useLiveQuery((q) => q.from({ albums: albumsCollection }));
-  const photoQuery = useLiveQuery((q) => q.from({ photos: photosCollection }));
-
-  const albums = useMemo(() => {
-    const rows = (albumQuery.data ?? []) as AlbumRow[];
-    return rows
-      .map(toAlbum)
-      .filter((album): album is Album => album !== null && album.deletedAt === null)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-  }, [albumQuery.data]);
+  const { albums, isLoading, hasError } = useAlbums();
+  const { photos } = useAllPhotos();
 
   const photoCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const row of (photoQuery.data ?? []) as PhotoRow[]) {
-      const photo = toPhoto(row);
-      if (!photo || photo.deletedAt !== null) {
-        continue;
-      }
+    for (const photo of photos) {
       counts.set(photo.albumId, (counts.get(photo.albumId) ?? 0) + 1);
     }
     return counts;
-  }, [photoQuery.data]);
+  }, [photos]);
 
-  const isLoading = albumQuery.isLoading || photoQuery.isLoading;
-  const hasError = albumQuery.isLoadingError || photoQuery.isLoadingError;
+  const albumCovers = useMemo(() => {
+    const covers = new Map<string, string>();
+    for (const photo of photos) {
+      if (!covers.has(photo.albumId)) {
+        covers.set(photo.albumId, photo.id);
+      }
+    }
+    return covers;
+  }, [photos]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-3xl font-semibold tracking-tight">Albums</h1>
           <p className="text-muted-foreground">
-            Albums sync from your organisation. Capturing new photos arrives in the next task.
+            Capture damage photos offline. Changes sync when the network returns.
           </p>
           {profile?.organizationId ? (
             <p className="text-xs text-muted-foreground">
@@ -115,14 +68,16 @@ function AlbumsContent() {
       {isOffline ? (
         <div className="flex items-center gap-2 rounded-lg border bg-muted px-3 py-2 text-sm">
           <IconCloudOff className="size-4" aria-hidden="true" />
-          Offline. Showing the albums stored on this device.
+          Offline. Capturing and editing continue on this device.
         </div>
       ) : null}
 
+      <CreateAlbumForm />
+
       {isLoading ? (
         <div className="grid gap-4 sm:grid-cols-2">
-          <Skeleton className="h-32 w-full" />
-          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-36 w-full" />
+          <Skeleton className="h-36 w-full" />
         </div>
       ) : null}
 
@@ -148,39 +103,65 @@ function AlbumsContent() {
               No albums yet
             </CardTitle>
             <CardDescription>
-              Albums created in the native app appear here after the first sync. Creating
-              albums in the PWA is part of the capture task.
+              Create your first album above. Albums created in the native app also appear
+              here after sync.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <Button variant="outline" disabled>
-              Create album soon
-            </Button>
-          </CardContent>
         </Card>
       ) : null}
 
       {albums.length > 0 ? (
         <ul className="grid gap-4 sm:grid-cols-2">
-          {albums.map((album) => (
-            <li key={album.id}>
-              <Card className="h-full">
-                <CardHeader>
-                  <CardTitle>{album.name}</CardTitle>
-                  <CardDescription>
-                    {album.notes ?? "No notes"}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex items-center justify-between text-sm text-muted-foreground">
-                  <span>
-                    {photoCounts.get(album.id) ?? 0} photo
-                    {(photoCounts.get(album.id) ?? 0) === 1 ? "" : "s"}
-                  </span>
-                  <span>{album.createdAt.toLocaleDateString()}</span>
-                </CardContent>
-              </Card>
-            </li>
-          ))}
+          {albums.map((album) => {
+            const count = photoCounts.get(album.id) ?? 0;
+            const cover = albumCovers.get(album.id);
+            return (
+              <li key={album.id}>
+                <Card className="h-full">
+                  <CardHeader>
+                    <div className="flex items-start gap-3">
+                      {cover ? (
+                        <PhotoThumbnail
+                          photoId={cover}
+                          alt={`${album.name} cover`}
+                          className="size-16 shrink-0"
+                        />
+                      ) : (
+                        <div className="flex size-16 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                          <IconImageOff className="size-5" aria-hidden="true" />
+                        </div>
+                      )}
+                      <div className="min-w-0 space-y-1">
+                        <CardTitle className="truncate">{album.name}</CardTitle>
+                        <CardDescription className="line-clamp-2">
+                          {album.notes ?? "No notes"}
+                        </CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
+                    <Badge variant="secondary">
+                      {count} photo{count === 1 ? "" : "s"}
+                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        className="text-sm underline underline-offset-4"
+                        to="/albums/$albumId/capture"
+                        params={{ albumId: album.id }}
+                      >
+                        Take photos
+                      </Link>
+                      <Button asChild size="sm" variant="outline">
+                        <Link to="/albums/$albumId/finish" params={{ albumId: album.id }}>
+                          Review
+                        </Link>
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </li>
+            );
+          })}
         </ul>
       ) : null}
     </div>

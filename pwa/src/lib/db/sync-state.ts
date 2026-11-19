@@ -48,9 +48,9 @@ function deriveState(status: SyncStatus, online: boolean): SyncState {
       lastSyncedAt: status.lastSyncedAt ?? null,
     };
   }
-  if (!status.connected) {
+  if (!status.connected && !status.hasSynced) {
     return {
-      phase: "offline",
+      phase: "connecting",
       message: null,
       lastSyncedAt: status.lastSyncedAt ?? null,
     };
